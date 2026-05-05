@@ -41,8 +41,13 @@ class UserLoginView(APIView):
         serializer = UserLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        username = serializer.validated_data["username"].strip()
+        identifier = serializer.validated_data["identifier"].strip()
         password = serializer.validated_data["password"]
+        lookup_user = User.objects.filter(username__iexact=identifier).first()
+        if lookup_user is None:
+            lookup_user = User.objects.filter(email__iexact=identifier).first()
+
+        username = lookup_user.username if lookup_user else identifier
         user = authenticate(request, username=username, password=password)
 
         if user is None:

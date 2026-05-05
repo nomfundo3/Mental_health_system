@@ -79,7 +79,7 @@ loginForm.addEventListener("submit", async (event) => {
     loginSuccessCard.classList.add("hidden");
 
     const payload = {
-        username: document.getElementById("login-username").value.trim(),
+        identifier: document.getElementById("login-identifier").value.trim(),
         password: document.getElementById("login-password").value,
     };
 
