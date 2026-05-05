@@ -1,7 +1,15 @@
+const registerForm = document.getElementById("register-form");
+const loginForm = document.getElementById("login-form");
 const chatForm = document.getElementById("chat-form");
 const moodForm = document.getElementById("mood-form");
 const resourcesButton = document.getElementById("load-resources");
 
+const registerStatus = document.getElementById("register-status");
+const registerSuccessCard = document.getElementById("register-success");
+const registerSuccessMessage = document.getElementById("register-success-message");
+const loginStatus = document.getElementById("login-status");
+const loginSuccessCard = document.getElementById("login-success");
+const loginSuccessMessage = document.getElementById("login-success-message");
 const chatStatus = document.getElementById("chat-status");
 const moodStatus = document.getElementById("mood-status");
 const resourcesStatus = document.getElementById("resources-status");
@@ -20,12 +28,72 @@ async function postJson(url, payload) {
         body: JSON.stringify(payload),
     });
 
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+        const firstError = Object.values(data)[0];
+        const message = Array.isArray(firstError) ? firstError[0] : firstError;
+        throw new Error(message || `Request failed with status ${response.status}`);
     }
 
-    return response.json();
+    return data;
 }
+
+registerForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    registerStatus.textContent = "Creating account...";
+    registerSuccessCard.classList.add("hidden");
+
+    const password = document.getElementById("register-password").value;
+    const confirmPassword = document.getElementById("register-confirm-password").value;
+
+    if (password !== confirmPassword) {
+        registerStatus.textContent = "Passwords do not match.";
+        return;
+    }
+
+    const payload = {
+        username: document.getElementById("register-username").value.trim(),
+        email: document.getElementById("register-email").value.trim(),
+        display_name: document.getElementById("register-display-name").value.trim(),
+        preferred_language: document.getElementById("register-language").value,
+        password,
+        confirm_password: confirmPassword,
+        consent_accepted: document.getElementById("register-consent").checked,
+    };
+
+    try {
+        const data = await postJson("/api/users/register/", payload);
+        registerStatus.textContent = "Registration successful.";
+        registerSuccessMessage.textContent = `${data.user.username} is ready to start using the system.`;
+        registerSuccessCard.classList.remove("hidden");
+        document.getElementById("username").value = data.user.username;
+        registerForm.reset();
+    } catch (error) {
+        registerStatus.textContent = error.message || "Could not create the account yet.";
+    }
+});
+
+loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    loginStatus.textContent = "Signing you in...";
+    loginSuccessCard.classList.add("hidden");
+
+    const payload = {
+        username: document.getElementById("login-username").value.trim(),
+        password: document.getElementById("login-password").value,
+    };
+
+    try {
+        const data = await postJson("/api/users/login/", payload);
+        loginStatus.textContent = "Login successful.";
+        loginSuccessMessage.textContent = `Welcome back, ${data.user.display_name || data.user.username}.`;
+        loginSuccessCard.classList.remove("hidden");
+        document.getElementById("username").value = data.user.username;
+        loginForm.reset();
+    } catch (error) {
+        loginStatus.textContent = error.message || "Could not log in yet.";
+    }
+});
 
 chatForm.addEventListener("submit", async (event) => {
     event.preventDefault();
