@@ -42,29 +42,61 @@ class ChatConversationView(APIView):
             session = ChatSession.objects.create(user=user)
 
         assessment = assess_message(message)
-        ChatMessage.objects.create(
+        user_message = ChatMessage.objects.create(
             session=session,
             role="user",
             content=message,
             sentiment=assessment["sentiment"],
             risk_level=assessment["risk_level"],
+            detected_categories=assessment["resource_categories"],
             flagged=assessment["flagged"],
+            confidence_score=assessment.get("confidence_score"),
+            source="rule_engine",
         )
 
         resources = list(
-            ResourceRecommendation.objects.filter(category__in=assessment["resource_categories"]).values(
-                "title", "description", "url", "category"
+            ResourceRecommendation.objects.filter(
+                category__in=assessment["resource_categories"],
+                is_active=True,
+            )
+            .order_by("-priority", "title")
+            .values(
+                "title", "description", "url", "category", "audience", "priority"
             )
         )
 
         response_text = build_support_response(message=message, assessment=assessment, resources=resources)
+        fallback_used = assessment["risk_level"] == "high"
         ChatMessage.objects.create(
             session=session,
             role="assistant",
             content=response_text,
-            sentiment=assessment["sentiment"],
+            sentiment="neutral",
             risk_level=assessment["risk_level"],
-            flagged=assessment["flagged"],
+            detected_categories=assessment["resource_categories"],
+            flagged=False,
+            confidence_score=assessment.get("confidence_score"),
+            fallback_used=fallback_used,
+            source="fallback" if fallback_used else "rule_engine",
+        )
+
+        session.last_message_at = user_message.created_at
+        session.last_risk_level = assessment["risk_level"]
+        session.escalation_required = assessment["flagged"]
+        if assessment["risk_level"] == "high":
+            session.status = "escalated"
+        elif assessment["flagged"]:
+            session.status = "flagged"
+        else:
+            session.status = "active"
+        session.save(
+            update_fields=[
+                "last_message_at",
+                "last_risk_level",
+                "escalation_required",
+                "status",
+                "updated_at",
+            ]
         )
 
         session.refresh_from_db()

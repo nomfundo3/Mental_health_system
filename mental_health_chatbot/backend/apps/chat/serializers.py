@@ -12,7 +12,13 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             "content",
             "sentiment",
             "risk_level",
+            "detected_categories",
             "flagged",
+            "confidence_score",
+            "fallback_used",
+            "source",
+            "reviewed_by_admin",
+            "reviewed_at",
             "created_at",
         ]
         read_only_fields = fields
@@ -23,14 +29,25 @@ class ChatSessionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ChatSession
-        fields = ["id", "title", "created_at", "updated_at", "messages"]
+        fields = [
+            "id",
+            "title",
+            "status",
+            "last_message_at",
+            "last_risk_level",
+            "escalation_required",
+            "notes",
+            "created_at",
+            "updated_at",
+            "messages",
+        ]
         read_only_fields = fields
 
 
 class MoodCheckInSerializer(serializers.ModelSerializer):
     class Meta:
         model = MoodCheckIn
-        fields = ["id", "user", "mood", "notes", "created_at"]
+        fields = ["id", "user", "session", "mood", "notes", "stress_level", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 
