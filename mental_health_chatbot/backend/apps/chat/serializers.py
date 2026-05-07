@@ -45,9 +45,22 @@ class ChatSessionSerializer(serializers.ModelSerializer):
 
 
 class MoodCheckInSerializer(serializers.ModelSerializer):
+    session_id = serializers.IntegerField(required=False, write_only=True)
+    username = serializers.CharField(required=False, allow_blank=True, write_only=True)
+
     class Meta:
         model = MoodCheckIn
-        fields = ["id", "user", "session", "mood", "notes", "stress_level", "created_at"]
+        fields = [
+            "id",
+            "user",
+            "session",
+            "session_id",
+            "username",
+            "mood",
+            "notes",
+            "stress_level",
+            "created_at",
+        ]
         read_only_fields = ["id", "created_at"]
 
 

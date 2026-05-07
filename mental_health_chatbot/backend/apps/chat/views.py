@@ -18,13 +18,27 @@ User = get_user_model()
 
 
 class ChatSessionListView(generics.ListAPIView):
-    queryset = ChatSession.objects.all().order_by("-updated_at")
     serializer_class = ChatSessionSerializer
+
+    def get_queryset(self):
+        queryset = ChatSession.objects.all().order_by("-updated_at")
+        username = self.request.query_params.get("username", "").strip()
+        if username:
+            queryset = queryset.filter(user__username__iexact=username)
+        return queryset
 
 
 class MoodCheckInCreateView(generics.CreateAPIView):
     queryset = MoodCheckIn.objects.all()
     serializer_class = MoodCheckInSerializer
+
+    def perform_create(self, serializer):
+        username = serializer.validated_data.pop("username", "").strip()
+        session_id = serializer.validated_data.pop("session_id", None)
+
+        user = User.objects.filter(username__iexact=username).first() if username else None
+        session = ChatSession.objects.filter(id=session_id).first() if session_id else None
+        serializer.save(user=user, session=session)
 
 
 class ChatConversationView(APIView):

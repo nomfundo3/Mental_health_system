@@ -1,4 +1,4 @@
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -77,3 +77,31 @@ class UserLoginView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class CurrentUserView(APIView):
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return Response({"authenticated": False, "user": None}, status=status.HTTP_200_OK)
+
+        user = request.user
+        return Response(
+            {
+                "authenticated": True,
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "display_name": user.display_name,
+                    "role": user.role,
+                    "preferred_language": user.preferred_language,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class UserLogoutView(APIView):
+    def post(self, request, *args, **kwargs):
+        logout(request)
+        return Response({"message": "Logout successful."}, status=status.HTTP_200_OK)
