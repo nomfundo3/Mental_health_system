@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>Mental Health Support Assistant</title>
     <link rel="stylesheet" href="/static/css/home.css">
 </head>
@@ -11,7 +12,9 @@
         <aside class="sidebar">
             <div class="sidebar-top">
                 <div class="logo-row">
-                    <div class="logo-mark">S</div>
+                    <button id="sidebar-home" class="logo-button" type="button" aria-label="Go to home">
+                        <span class="logo-mark">S</span>
+                    </button>
                 </div>
 
                 <button id="new-chat" class="nav-button primary-nav" type="button">New chat</button>
@@ -20,25 +23,22 @@
                     <button id="load-sessions" class="nav-button" type="button">Search chats</button>
                     <button id="show-mood-panel" class="nav-button" type="button">Mood check-in</button>
                     <button id="load-resources" class="nav-button" type="button">Resources</button>
-                    <button id="load-flagged" class="nav-button" type="button">Flagged review</button>
+                    <button id="load-flagged" class="nav-button hidden" type="button">Flagged review</button>
                 </nav>
-
-                <div id="dashboard-status" class="status-text"></div>
-                <div id="session-list" class="session-list empty-state">
-                    Log in to load saved chats.
-                </div>
             </div>
 
             <div class="sidebar-bottom">
-                <button class="nav-button" type="button">Settings</button>
-                <button class="nav-button" type="button">Help</button>
+                <button id="open-settings" class="nav-button" type="button">Settings</button>
+                <button id="open-help" class="nav-button" type="button">Help</button>
 
-                <div class="promo-card">
-                    <p class="promo-title">Get support tailored to you</p>
-                    <p class="promo-copy">
+                <div id="promo-card" class="promo-card">
+                    <p id="promo-title" class="promo-title">Get support tailored to you</p>
+                    <p id="promo-copy" class="promo-copy">
                         Log in to save chats, mood check-ins, and support resources.
                     </p>
-                    <button id="open-login" class="promo-button" type="button">Log in</button>
+                    <div id="promo-guest-actions" class="promo-actions">
+                        <button id="open-login" class="promo-button" type="button">Log in</button>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -48,9 +48,17 @@
                 <div class="topbar-left">
                     <span class="model-name">Mental Health Support</span>
                 </div>
-                <div class="topbar-actions">
-                    <button id="open-login-top" class="auth-button dark-button" type="button">Log in</button>
-                    <button id="open-register" class="auth-button light-button" type="button">Sign up for free</button>
+                <div class="topbar-actions-wrap">
+                    <div id="guest-actions" class="topbar-actions">
+                        <button id="open-login-top" class="auth-button dark-button" type="button">Log in</button>
+                        <button id="open-register" class="auth-button light-button" type="button">Sign up for free</button>
+                    </div>
+                    <div id="user-actions" class="topbar-actions hidden">
+                        <span id="topbar-user-label" class="user-pill">Guest</span>
+                        <button id="open-admin-panel" class="auth-button light-button hidden" type="button">Admin panel</button>
+                        <button id="open-account" class="auth-button light-button" type="button">Account</button>
+                        <button id="logout-top" class="auth-button dark-button" type="button">Log out</button>
+                    </div>
                 </div>
             </header>
 
@@ -140,6 +148,14 @@
                     </ol>
                 </section>
 
+                <section id="session-history-panel" class="info-card">
+                    <p class="section-label">Saved chats</p>
+                    <div id="dashboard-status" class="status-text"></div>
+                    <div id="session-list" class="session-list empty-state">
+                        Log in to browse saved chats.
+                    </div>
+                </section>
+
                 <section class="info-card">
                     <p class="section-label">Session summary</p>
                     <div class="mini-stats">
@@ -151,7 +167,7 @@
                             <span>Resources</span>
                             <strong id="fact-resource-count">0</strong>
                         </div>
-                        <div>
+                        <div id="flagged-stat-card" class="hidden">
                             <span>Flagged</span>
                             <strong id="fact-flagged-count">0</strong>
                         </div>
@@ -177,13 +193,53 @@
                     <div id="mood-status" class="status-text"></div>
                 </section>
 
-                <section class="info-card">
+                <section id="resources-panel" class="info-card">
                     <p class="section-label">Support resources</p>
                     <div id="resources-status" class="status-text"></div>
                     <div id="resources-list" class="resource-list"></div>
                 </section>
 
-                <section class="info-card">
+                <section id="settings-panel" class="info-card">
+                    <p class="section-label">Settings</p>
+                    <div class="settings-stack">
+                        <label class="field-stack" for="text-size-select">
+                            <span>Text size</span>
+                            <select id="text-size-select">
+                                <option value="comfortable">Comfortable</option>
+                                <option value="compact">Compact</option>
+                                <option value="large">Large</option>
+                            </select>
+                        </label>
+                        <label class="checkbox-row">
+                            <input id="reduce-motion-toggle" type="checkbox">
+                            <span>Reduce motion when opening sections.</span>
+                        </label>
+                        <div class="settings-actions">
+                            <button id="reset-preferences" class="auth-secondary" type="button">Reset preferences</button>
+                        </div>
+                        <div id="settings-status" class="status-text"></div>
+                    </div>
+                </section>
+
+                <section id="help-panel" class="info-card">
+                    <p class="section-label">Help</p>
+                    <div class="help-stack">
+                        <p class="muted-copy">Use the sidebar to move through the core parts of the assistant.</p>
+                        <div class="help-list">
+                            <div class="help-item">New chat clears the current conversation so you can start fresh.</div>
+                            <div class="help-item">Search chats loads your saved sessions after you log in.</div>
+                            <div class="help-item">Mood check-in lets you save how you are feeling during a session.</div>
+                            <div class="help-item">Resources opens support links and emergency guidance.</div>
+                        </div>
+                        <div class="help-actions">
+                            <button id="help-start-chat" class="promo-button" type="button">Start new chat</button>
+                            <button id="help-open-resources" class="auth-secondary" type="button">Open resources</button>
+                        </div>
+                        <p class="muted-copy">If there is immediate danger or risk of self-harm, contact local emergency services or a trusted support person right away.</p>
+                    </div>
+                </section>
+
+                <section id="flagged-review-card" class="info-card hidden">
                     <p class="section-label">Flagged review</p>
                     <div id="flagged-list" class="flagged-list empty-state">
                         Support staff can load flagged conversations here after login.

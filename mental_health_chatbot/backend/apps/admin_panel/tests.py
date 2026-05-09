@@ -3,6 +3,8 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.chat.models import ChatMessage, ChatSession
+from apps.chat.models import MoodCheckIn
+from apps.recommendations.models import ResourceRecommendation
 
 User = get_user_model()
 
@@ -35,6 +37,20 @@ class AdminPanelTests(TestCase):
             flagged=True,
             detected_categories=["crisis"],
         )
+        MoodCheckIn.objects.create(
+            user=self.student_user,
+            session=session,
+            mood="anxious",
+            notes="I feel under pressure.",
+            stress_level=4,
+        )
+        ResourceRecommendation.objects.create(
+            title="Support Line",
+            description="Call for urgent support.",
+            category="crisis",
+            audience="support",
+            is_active=True,
+        )
 
     def test_admin_dashboard_requires_authorized_user(self):
         unauthorized = self.client.get("/api/admin-panel/dashboard/")
@@ -48,3 +64,8 @@ class AdminPanelTests(TestCase):
         allowed = self.client.get("/api/admin-panel/dashboard/")
         self.assertEqual(allowed.status_code, 200)
         self.assertEqual(allowed.json()["totals"]["flagged_messages"], 1)
+        self.assertIn("breakdowns", allowed.json())
+        self.assertIn("insights", allowed.json())
+        self.assertEqual(allowed.json()["breakdowns"]["risk_levels"]["high"], 1)
+        self.assertEqual(len(allowed.json()["recent_sessions"]), 1)
+        self.assertEqual(len(allowed.json()["recent_mood_checkins"]), 1)

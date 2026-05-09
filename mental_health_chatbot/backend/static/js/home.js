@@ -42,23 +42,185 @@ const loadSessionsButton = document.getElementById("load-sessions");
 const loadResourcesButton = document.getElementById("load-resources");
 const loadFlaggedButton = document.getElementById("load-flagged");
 const showMoodPanelButton = document.getElementById("show-mood-panel");
+const openSettingsButton = document.getElementById("open-settings");
+const openHelpButton = document.getElementById("open-help");
+const sidebarHomeButton = document.getElementById("sidebar-home");
 
 const openLoginButton = document.getElementById("open-login");
 const openLoginTopButton = document.getElementById("open-login-top");
 const openRegisterButton = document.getElementById("open-register");
+const openAdminPanelButton = document.getElementById("open-admin-panel");
+const openAccountButton = document.getElementById("open-account");
 const closeAuthModalButton = document.getElementById("close-auth-modal");
 const authModal = document.getElementById("auth-modal");
 const loginPanel = document.getElementById("login-panel");
 const registerPanel = document.getElementById("register-panel");
 const accountSummary = document.getElementById("account-summary");
 const logoutButton = document.getElementById("logout-button");
+const logoutTopButton = document.getElementById("logout-top");
+
+const guestActions = document.getElementById("guest-actions");
+const userActions = document.getElementById("user-actions");
+const promoCard = document.getElementById("promo-card");
+const topbarUserLabel = document.getElementById("topbar-user-label");
+const promoTitle = document.getElementById("promo-title");
+const promoCopy = document.getElementById("promo-copy");
+const promoGuestActions = document.getElementById("promo-guest-actions");
+const flaggedReviewCard = document.getElementById("flagged-review-card");
+const flaggedStatCard = document.getElementById("flagged-stat-card");
 
 const utilityDrawer = document.getElementById("utility-drawer");
 const closeDrawerButton = document.getElementById("close-drawer");
+const sessionHistoryPanel = document.getElementById("session-history-panel");
 const moodPanel = document.getElementById("mood-panel");
+const resourcesPanel = document.getElementById("resources-panel");
+const settingsPanel = document.getElementById("settings-panel");
+const helpPanel = document.getElementById("help-panel");
+const textSizeSelect = document.getElementById("text-size-select");
+const reduceMotionToggle = document.getElementById("reduce-motion-toggle");
+const resetPreferencesButton = document.getElementById("reset-preferences");
+const settingsStatus = document.getElementById("settings-status");
+const helpStartChatButton = document.getElementById("help-start-chat");
+const helpOpenResourcesButton = document.getElementById("help-open-resources");
 
 let currentUser = null;
 let currentSessionId = null;
+const sidebarButtons = [
+    newChatButton,
+    loadSessionsButton,
+    showMoodPanelButton,
+    loadResourcesButton,
+    loadFlaggedButton,
+    openSettingsButton,
+    openHelpButton,
+].filter(Boolean);
+const preferenceStorageKey = "mental-health-sidebar-preferences";
+const csrfMetaTag = document.querySelector('meta[name="csrf-token"]');
+
+function isSupportUser(user = currentUser) {
+    return Boolean(user && ["admin", "support"].includes(user.role));
+}
+
+function getCookie(name) {
+    const cookieString = document.cookie || "";
+    const cookies = cookieString.split(";").map((cookie) => cookie.trim());
+    const match = cookies.find((cookie) => cookie.startsWith(`${name}=`));
+    return match ? decodeURIComponent(match.split("=").slice(1).join("=")) : "";
+}
+
+function getCsrfToken() {
+    const cookieToken = getCookie("csrftoken");
+    if (cookieToken) {
+        return cookieToken;
+    }
+
+    const metaToken = csrfMetaTag ? csrfMetaTag.content : "";
+    if (!metaToken || metaToken === "NOTPROVIDED") {
+        return "";
+    }
+
+    return metaToken;
+}
+
+function getFlaggedDefaultMessage(user = currentUser) {
+    if (!user) {
+        return "Support staff can load flagged conversations here after login.";
+    }
+
+    if (isSupportUser(user)) {
+        return "Flagged conversations will appear here after you load them.";
+    }
+
+    return "Flagged review is only available to support staff.";
+}
+
+function setActiveSidebarButton(activeButton) {
+    sidebarButtons.forEach((button) => {
+        button.classList.toggle("active-nav", button === activeButton);
+    });
+}
+
+function shouldReduceMotion() {
+    return Boolean(reduceMotionToggle && reduceMotionToggle.checked);
+}
+
+function scrollSectionIntoView(section) {
+    if (!section) {
+        return;
+    }
+
+    requestAnimationFrame(() => {
+        section.scrollIntoView({
+            behavior: shouldReduceMotion() ? "auto" : "smooth",
+            block: "start",
+        });
+    });
+}
+
+function openDrawerSection(section, activeButton) {
+    openDrawer();
+    if (activeButton) {
+        setActiveSidebarButton(activeButton);
+    }
+    scrollSectionIntoView(section);
+}
+
+function getDefaultPreferences() {
+    return {
+        textSize: "comfortable",
+        reduceMotion: false,
+    };
+}
+
+function loadStoredPreferences() {
+    try {
+        const raw = localStorage.getItem(preferenceStorageKey);
+        return raw ? { ...getDefaultPreferences(), ...JSON.parse(raw) } : getDefaultPreferences();
+    } catch (error) {
+        return getDefaultPreferences();
+    }
+}
+
+function saveStoredPreferences(preferences) {
+    localStorage.setItem(preferenceStorageKey, JSON.stringify(preferences));
+}
+
+function applyPreferences(preferences, statusMessage = "") {
+    const fontSizeMap = {
+        compact: "15px",
+        comfortable: "16px",
+        large: "18px",
+    };
+
+    document.body.dataset.textSize = preferences.textSize;
+    document.documentElement.style.fontSize = fontSizeMap[preferences.textSize] || fontSizeMap.comfortable;
+    document.body.classList.toggle("reduce-motion", preferences.reduceMotion);
+    textSizeSelect.value = preferences.textSize;
+    reduceMotionToggle.checked = preferences.reduceMotion;
+    settingsStatus.textContent = statusMessage;
+}
+
+function readPreferencesFromControls() {
+    return {
+        textSize: textSizeSelect.value,
+        reduceMotion: reduceMotionToggle.checked,
+    };
+}
+
+function savePreferences(statusMessage = "Preferences saved.") {
+    const preferences = readPreferencesFromControls();
+    saveStoredPreferences(preferences);
+    applyPreferences(preferences, statusMessage);
+}
+
+function resetWorkspace(statusMessage = "New chat ready.") {
+    setSessionSummary(null);
+    setSafetySummary(null);
+    renderTranscript([]);
+    document.getElementById("message").value = "";
+    chatStatus.textContent = statusMessage;
+    responseCard.classList.add("hidden");
+}
 
 function setStepState(step, state) {
     step.classList.remove("active-step", "done-step");
@@ -84,9 +246,11 @@ function updateOrderedFlow() {
 }
 
 function openAuthPanel(mode) {
+    const resolvedMode = currentUser ? "account" : mode;
     authModal.classList.remove("hidden");
-    loginPanel.classList.toggle("hidden", mode !== "login");
-    registerPanel.classList.toggle("hidden", mode !== "register");
+    loginPanel.classList.toggle("hidden", resolvedMode !== "login");
+    registerPanel.classList.toggle("hidden", resolvedMode !== "register");
+    accountSummary.classList.toggle("hidden", resolvedMode !== "account");
 }
 
 function closeAuthPanel() {
@@ -106,6 +270,39 @@ function toggleChatEmpty(isEmpty) {
     chatTranscript.classList.toggle("hidden", isEmpty);
 }
 
+function updateAuthChrome(user) {
+    const isAuthenticated = Boolean(user);
+    const accountName = user ? (user.display_name || user.username) : "Guest";
+    const canAccessAdmin = isSupportUser(user);
+
+    guestActions.classList.toggle("hidden", isAuthenticated);
+    userActions.classList.toggle("hidden", !isAuthenticated);
+    promoCard.classList.toggle("hidden", isAuthenticated);
+    promoGuestActions.classList.toggle("hidden", isAuthenticated);
+    openAdminPanelButton.classList.toggle("hidden", !canAccessAdmin);
+
+    topbarUserLabel.textContent = accountName;
+    promoTitle.textContent = isAuthenticated ? `Welcome, ${accountName}` : "Get support tailored to you";
+    promoCopy.textContent = isAuthenticated
+        ? "Your saved chats, mood check-ins, and support resources are ready when you are."
+        : "Log in to save chats, mood check-ins, and support resources.";
+}
+
+function updateSupportChrome(user) {
+    const canReviewFlagged = isSupportUser(user);
+
+    loadFlaggedButton.classList.toggle("hidden", !canReviewFlagged);
+    flaggedReviewCard.classList.toggle("hidden", !canReviewFlagged);
+    flaggedStatCard.classList.toggle("hidden", !canReviewFlagged);
+
+    if (!canReviewFlagged) {
+        factFlaggedCount.textContent = "0";
+    }
+
+    flaggedList.className = "flagged-list empty-state";
+    flaggedList.textContent = getFlaggedDefaultMessage(user);
+}
+
 function setActiveUser(user) {
     currentUser = user;
     document.getElementById("username").value = user ? user.username : "";
@@ -114,7 +311,8 @@ function setActiveUser(user) {
         ? `${user.username} is signed in and ready to continue.`
         : "Register or log in to begin.";
     chatTitle.textContent = user ? `Welcome back, ${user.display_name || user.username}` : "What's on your mind today?";
-    accountSummary.classList.toggle("hidden", !user);
+    updateAuthChrome(user);
+    updateSupportChrome(user);
     updateOrderedFlow();
 }
 
@@ -132,6 +330,31 @@ function setSafetySummary(assessment) {
     activeSafetyMeta.textContent = assessment
         ? `Sentiment: ${assessment.sentiment}. Categories: ${assessment.resource_categories.join(", ")}.`
         : "Risk detection updates after each message.";
+}
+
+function syncResponseCardFromSession(session) {
+    const messages = session.messages || [];
+    const lastAssistantMessage = [...messages].reverse().find((entry) => entry.role === "assistant");
+    const lastUserMessage = [...messages].reverse().find((entry) => entry.role === "user");
+
+    if (!lastAssistantMessage) {
+        responseCard.classList.add("hidden");
+        return;
+    }
+
+    assistantMessage.textContent = lastAssistantMessage.content;
+    sentiment.textContent = lastUserMessage ? lastUserMessage.sentiment : "neutral";
+    riskLevel.textContent = session.last_risk_level || lastAssistantMessage.risk_level;
+    responseCard.classList.remove("hidden");
+    setSafetySummary(
+        lastUserMessage
+            ? {
+                risk_level: lastUserMessage.risk_level,
+                sentiment: lastUserMessage.sentiment,
+                resource_categories: lastUserMessage.detected_categories || [],
+            }
+            : null
+    );
 }
 
 function renderTranscript(messages) {
@@ -158,7 +381,9 @@ function renderSessions(sessions) {
     factSessionCount.textContent = sessions.length;
     if (!sessions.length) {
         sessionList.className = "session-list empty-state";
-        sessionList.textContent = "No sessions saved for this user yet.";
+        sessionList.textContent = currentUser
+            ? "No saved chats yet. Start a conversation and it will appear here."
+            : "Log in to browse saved chats.";
         return;
     }
 
@@ -210,7 +435,9 @@ async function postJson(url, payload = {}) {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
+            "X-CSRFToken": getCsrfToken(),
         },
+        credentials: "same-origin",
         body: JSON.stringify(payload),
     });
 
@@ -243,7 +470,7 @@ async function loadCurrentUser() {
 async function loadSessions() {
     const username = document.getElementById("username").value.trim();
     if (!username) {
-        dashboardStatus.textContent = "Log in to fetch chat history.";
+        dashboardStatus.textContent = "Log in to view saved chats.";
         renderSessions([]);
         return;
     }
@@ -255,7 +482,7 @@ async function loadSessions() {
             throw new Error(`Request failed with status ${response.status}`);
         }
         const sessions = await response.json();
-        dashboardStatus.textContent = sessions.length ? "" : "No saved sessions for this user yet.";
+        dashboardStatus.textContent = "";
         renderSessions(sessions);
     } catch (error) {
         dashboardStatus.textContent = "Could not load sessions yet.";
@@ -264,7 +491,6 @@ async function loadSessions() {
 
 async function loadResources() {
     resourcesStatus.textContent = "Loading resources...";
-    openDrawer();
     try {
         const response = await fetch("/api/recommendations/");
         if (!response.ok) {
@@ -279,9 +505,14 @@ async function loadResources() {
 }
 
 async function loadFlaggedMessages() {
+    if (!isSupportUser()) {
+        flaggedList.className = "flagged-list empty-state";
+        flaggedList.textContent = getFlaggedDefaultMessage();
+        return;
+    }
+
     flaggedList.className = "flagged-list empty-state";
     flaggedList.textContent = "Loading flagged cases...";
-    openDrawer();
     try {
         const response = await fetch("/api/admin-panel/flagged-messages/");
         if (!response.ok) {
@@ -292,6 +523,37 @@ async function loadFlaggedMessages() {
     } catch (error) {
         flaggedList.textContent = "Support login is required to view flagged cases.";
     }
+}
+
+async function showSessionHistory() {
+    openDrawerSection(sessionHistoryPanel, loadSessionsButton);
+    await loadSessions();
+}
+
+function showMoodSection() {
+    openDrawerSection(moodPanel, showMoodPanelButton);
+    if (!currentUser) {
+        moodStatus.textContent = "Log in to save a mood check-in.";
+    }
+}
+
+async function showResourcesSection() {
+    openDrawerSection(resourcesPanel, loadResourcesButton);
+    await loadResources();
+}
+
+async function showFlaggedSection() {
+    openDrawerSection(flaggedReviewCard, loadFlaggedButton);
+    await loadFlaggedMessages();
+}
+
+function showSettingsSection() {
+    openDrawerSection(settingsPanel, openSettingsButton);
+    settingsStatus.textContent = "";
+}
+
+function showHelpSection() {
+    openDrawerSection(helpPanel, openHelpButton);
 }
 
 registerForm.addEventListener("submit", async (event) => {
@@ -354,8 +616,11 @@ chatForm.addEventListener("submit", async (event) => {
     const payload = {
         username: document.getElementById("username").value,
         message: document.getElementById("message").value.trim(),
-        session_id: currentSessionId,
     };
+
+    if (currentSessionId) {
+        payload.session_id = currentSessionId;
+    }
 
     if (!payload.username) {
         chatStatus.textContent = "Please log in before chatting.";
@@ -395,11 +660,20 @@ moodForm.addEventListener("submit", async (event) => {
 
     const payload = {
         username: document.getElementById("username").value,
-        session_id: currentSessionId,
         mood: document.getElementById("mood").value,
         notes: document.getElementById("mood-notes").value,
         stress_level: document.getElementById("stress-level").value,
     };
+
+    if (currentSessionId) {
+        payload.session_id = currentSessionId;
+    }
+
+    if (!payload.username) {
+        moodStatus.textContent = "Please log in before saving a mood check-in.";
+        openAuthPanel("login");
+        return;
+    }
 
     try {
         await postJson("/api/chat/mood-checkins/", payload);
@@ -423,54 +697,89 @@ sessionList.addEventListener("click", async (event) => {
         return;
     }
 
-    const response = await fetch(`/api/chat/sessions/?username=${encodeURIComponent(username)}`);
-    const sessions = await response.json();
-    const match = sessions.find((session) => session.id === sessionId);
-    if (!match) {
-        return;
-    }
+    try {
+        dashboardStatus.textContent = "Opening saved chat...";
+        const response = await fetch(`/api/chat/sessions/?username=${encodeURIComponent(username)}`);
+        if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+        }
 
-    setSessionSummary(match);
-    renderTranscript(match.messages || []);
-    renderSessions(sessions);
+        const sessions = await response.json();
+        const match = sessions.find((session) => session.id === sessionId);
+        if (!match) {
+            dashboardStatus.textContent = "That saved chat is no longer available.";
+            return;
+        }
+
+        dashboardStatus.textContent = "";
+        setSessionSummary(match);
+        renderTranscript(match.messages || []);
+        syncResponseCardFromSession(match);
+        renderSessions(sessions);
+        closeDrawer();
+        setActiveSidebarButton(loadSessionsButton);
+    } catch (error) {
+        dashboardStatus.textContent = "Could not open that saved chat yet.";
+    }
 });
 
 newChatButton.addEventListener("click", () => {
-    setSessionSummary(null);
-    setSafetySummary(null);
-    renderTranscript([]);
-    document.getElementById("message").value = "";
-    chatStatus.textContent = "New chat ready.";
+    setActiveSidebarButton(newChatButton);
+    closeDrawer();
+    resetWorkspace("New chat ready.");
 });
 
-loadSessionsButton.addEventListener("click", loadSessions);
-loadResourcesButton.addEventListener("click", loadResources);
-loadFlaggedButton.addEventListener("click", loadFlaggedMessages);
-showMoodPanelButton.addEventListener("click", () => {
-    openDrawer();
-    moodPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+sidebarHomeButton.addEventListener("click", () => {
+    setActiveSidebarButton(newChatButton);
+    closeDrawer();
+    resetWorkspace("Home ready.");
 });
+
+loadSessionsButton.addEventListener("click", showSessionHistory);
+loadResourcesButton.addEventListener("click", showResourcesSection);
+loadFlaggedButton.addEventListener("click", showFlaggedSection);
+showMoodPanelButton.addEventListener("click", showMoodSection);
+openSettingsButton.addEventListener("click", showSettingsSection);
+openHelpButton.addEventListener("click", showHelpSection);
 
 openLoginButton.addEventListener("click", () => openAuthPanel("login"));
 openLoginTopButton.addEventListener("click", () => openAuthPanel("login"));
 openRegisterButton.addEventListener("click", () => openAuthPanel("register"));
+openAdminPanelButton.addEventListener("click", () => {
+    window.location.href = "/admin-support/";
+});
+openAccountButton.addEventListener("click", () => openAuthPanel("account"));
 closeAuthModalButton.addEventListener("click", closeAuthPanel);
 closeDrawerButton.addEventListener("click", closeDrawer);
-logoutButton.addEventListener("click", async () => {
+textSizeSelect.addEventListener("change", () => savePreferences());
+reduceMotionToggle.addEventListener("change", () => savePreferences());
+resetPreferencesButton.addEventListener("click", () => {
+    const defaults = getDefaultPreferences();
+    saveStoredPreferences(defaults);
+    applyPreferences(defaults, "Preferences reset.");
+});
+helpStartChatButton.addEventListener("click", () => {
+    closeDrawer();
+    setActiveSidebarButton(newChatButton);
+    resetWorkspace("New chat ready.");
+});
+helpOpenResourcesButton.addEventListener("click", showResourcesSection);
+
+async function handleLogout() {
     try {
         await postJson("/api/users/logout/");
     } finally {
         setActiveUser(null);
-        setSessionSummary(null);
-        setSafetySummary(null);
         renderSessions([]);
-        renderTranscript([]);
-        responseCard.classList.add("hidden");
-        flaggedList.className = "flagged-list empty-state";
-        flaggedList.textContent = "Support staff can load flagged conversations here after login.";
+        resetWorkspace("You have logged out.");
+        setActiveSidebarButton(newChatButton);
         closeAuthPanel();
+        closeDrawer();
     }
-});
+}
+
+logoutButton.addEventListener("click", handleLogout);
+logoutTopButton.addEventListener("click", handleLogout);
 
 authModal.addEventListener("click", (event) => {
     if (event.target === authModal) {
@@ -484,8 +793,8 @@ utilityDrawer.addEventListener("click", (event) => {
     }
 });
 
+applyPreferences(loadStoredPreferences());
 setActiveUser(null);
-setSessionSummary(null);
-setSafetySummary(null);
-toggleChatEmpty(true);
+resetWorkspace("");
+setActiveSidebarButton(newChatButton);
 loadCurrentUser();
