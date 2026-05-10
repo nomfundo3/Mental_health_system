@@ -1,8 +1,10 @@
 from django.contrib import admin
 from django.shortcuts import render
 from django.urls import include, path
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 
+@ensure_csrf_cookie
 def home(request):
     return render(request, "home.html")
 

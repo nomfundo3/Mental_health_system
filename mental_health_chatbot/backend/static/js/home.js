@@ -60,6 +60,31 @@ const moodPanel = document.getElementById("mood-panel");
 let currentUser = null;
 let currentSessionId = null;
 
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function getCsrfToken() {
+    // Try to get from meta tag first
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (token && token !== "NOTPROVIDED") {
+        return token;
+    }
+    // Fall back to cookie
+    return getCookie('csrftoken');
+}
+
 function setStepState(step, state) {
     step.classList.remove("active-step", "done-step");
     if (state === "active") {
@@ -206,11 +231,15 @@ function renderFlagged(flagged) {
 }
 
 async function postJson(url, payload = {}) {
+    const csrfToken = getCsrfToken();
+
     const response = await fetch(url, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
+            ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
         },
+        credentials: "same-origin",
         body: JSON.stringify(payload),
     });
 
@@ -241,8 +270,7 @@ async function loadCurrentUser() {
 }
 
 async function loadSessions() {
-    const username = document.getElementById("username").value.trim();
-    if (!username) {
+    if (!currentUser) {
         dashboardStatus.textContent = "Log in to fetch chat history.";
         renderSessions([]);
         return;
@@ -250,7 +278,7 @@ async function loadSessions() {
 
     dashboardStatus.textContent = "Loading sessions...";
     try {
-        const response = await fetch(`/api/chat/sessions/?username=${encodeURIComponent(username)}`);
+        const response = await fetch("/api/chat/sessions/");
         if (!response.ok) {
             throw new Error(`Request failed with status ${response.status}`);
         }
@@ -352,12 +380,11 @@ chatForm.addEventListener("submit", async (event) => {
     chatStatus.textContent = "Sending message...";
 
     const payload = {
-        username: document.getElementById("username").value,
         message: document.getElementById("message").value.trim(),
         session_id: currentSessionId,
     };
 
-    if (!payload.username) {
+    if (!currentUser) {
         chatStatus.textContent = "Please log in before chatting.";
         openAuthPanel("login");
         return;
@@ -394,7 +421,6 @@ moodForm.addEventListener("submit", async (event) => {
     moodStatus.textContent = "Saving check-in...";
 
     const payload = {
-        username: document.getElementById("username").value,
         session_id: currentSessionId,
         mood: document.getElementById("mood").value,
         notes: document.getElementById("mood-notes").value,
@@ -418,12 +444,11 @@ sessionList.addEventListener("click", async (event) => {
     }
 
     const sessionId = Number(button.dataset.sessionId);
-    const username = document.getElementById("username").value.trim();
-    if (!sessionId || !username) {
+    if (!sessionId || !currentUser) {
         return;
     }
 
-    const response = await fetch(`/api/chat/sessions/?username=${encodeURIComponent(username)}`);
+    const response = await fetch("/api/chat/sessions/");
     const sessions = await response.json();
     const match = sessions.find((session) => session.id === sessionId);
     if (!match) {
@@ -484,8 +509,19 @@ utilityDrawer.addEventListener("click", (event) => {
     }
 });
 
-setActiveUser(null);
-setSessionSummary(null);
-setSafetySummary(null);
-toggleChatEmpty(true);
-loadCurrentUser();
+async function initializeApp() {
+    // Make a GET request to ensure CSRF token is set
+    try {
+        await fetch("/api/users/me/", { credentials: "same-origin" });
+    } catch (error) {
+        // no-op - just ensuring token is initialized
+    }
+    
+    setActiveUser(null);
+    setSessionSummary(null);
+    setSafetySummary(null);
+    toggleChatEmpty(true);
+    loadCurrentUser();
+}
+
+initializeApp();

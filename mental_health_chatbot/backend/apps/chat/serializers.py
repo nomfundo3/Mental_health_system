@@ -46,7 +46,7 @@ class ChatSessionSerializer(serializers.ModelSerializer):
 
 class MoodCheckInSerializer(serializers.ModelSerializer):
     session_id = serializers.IntegerField(required=False, write_only=True)
-    username = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    stress_level = serializers.IntegerField(required=False)
 
     class Meta:
         model = MoodCheckIn
@@ -55,16 +55,14 @@ class MoodCheckInSerializer(serializers.ModelSerializer):
             "user",
             "session",
             "session_id",
-            "username",
             "mood",
             "notes",
             "stress_level",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "user", "session", "created_at"]
 
 
 class ChatRequestSerializer(serializers.Serializer):
-    session_id = serializers.IntegerField(required=False)
-    message = serializers.CharField()
-    username = serializers.CharField(required=False, allow_blank=True)
+    session_id = serializers.IntegerField(required=False, allow_null=True)
+    message = serializers.CharField(required=True, allow_blank=False)
