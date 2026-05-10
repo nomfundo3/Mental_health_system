@@ -26,6 +26,7 @@ class ChatMessageSerializer(serializers.ModelSerializer):
 
 class ChatSessionSerializer(serializers.ModelSerializer):
     messages = ChatMessageSerializer(many=True, read_only=True)
+    title = serializers.SerializerMethodField()
 
     class Meta:
         model = ChatSession
@@ -43,10 +44,24 @@ class ChatSessionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    def get_title(self, obj):
+        title = (obj.title or "").strip()
+        if title and title != "Support chat":
+            return title
+
+        first_user_message = obj.messages.filter(role="user").order_by("created_at").first()
+        if first_user_message and first_user_message.content:
+            normalized = " ".join(first_user_message.content.strip().split())
+            if len(normalized) <= 42:
+                return normalized
+            return f"{normalized[:37].rstrip()}....."
+
+        return title or "Support chat"
+
 
 class MoodCheckInSerializer(serializers.ModelSerializer):
     session_id = serializers.IntegerField(required=False, write_only=True)
-    username = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    stress_level = serializers.IntegerField(required=False)
 
     class Meta:
         model = MoodCheckIn
@@ -55,16 +70,14 @@ class MoodCheckInSerializer(serializers.ModelSerializer):
             "user",
             "session",
             "session_id",
-            "username",
             "mood",
             "notes",
             "stress_level",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "user", "session", "created_at"]
 
 
 class ChatRequestSerializer(serializers.Serializer):
-    session_id = serializers.IntegerField(required=False)
-    message = serializers.CharField()
-    username = serializers.CharField(required=False, allow_blank=True)
+    session_id = serializers.IntegerField(required=False, allow_null=True)
+    message = serializers.CharField(required=True, allow_blank=False)

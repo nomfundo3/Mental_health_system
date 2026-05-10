@@ -8,13 +8,9 @@ const loginStatus = document.getElementById("login-status");
 const chatStatus = document.getElementById("chat-status");
 const moodStatus = document.getElementById("mood-status");
 const resourcesStatus = document.getElementById("resources-status");
+const settingsStatus = document.getElementById("settings-status");
 
 const resourcesList = document.getElementById("resources-list");
-const responseCard = document.getElementById("chat-response");
-const assistantMessage = document.getElementById("assistant-message");
-const sentiment = document.getElementById("sentiment");
-const riskLevel = document.getElementById("risk-level");
-
 const sessionList = document.getElementById("session-list");
 const dashboardStatus = document.getElementById("dashboard-status");
 const chatTranscript = document.getElementById("chat-transcript");
@@ -23,15 +19,15 @@ const flaggedList = document.getElementById("flagged-list");
 
 const activeUser = document.getElementById("active-user");
 const activeUserMeta = document.getElementById("active-user-meta");
-const activeSession = document.getElementById("active-session");
 const activeSessionMeta = document.getElementById("active-session-meta");
-const activeSafety = document.getElementById("active-safety");
 const activeSafetyMeta = document.getElementById("active-safety-meta");
 const chatTitle = document.getElementById("chat-title");
+const topbarUserLabel = document.getElementById("topbar-user-label");
 
 const factSessionCount = document.getElementById("fact-session-count");
 const factResourceCount = document.getElementById("fact-resource-count");
 const factFlaggedCount = document.getElementById("fact-flagged-count");
+const flaggedStatCard = document.getElementById("flagged-stat-card");
 
 const stepRegister = document.getElementById("step-register");
 const stepLogin = document.getElementById("step-login");
@@ -62,16 +58,13 @@ const logoutTopButton = document.getElementById("logout-top");
 const guestActions = document.getElementById("guest-actions");
 const userActions = document.getElementById("user-actions");
 const promoCard = document.getElementById("promo-card");
-const topbarUserLabel = document.getElementById("topbar-user-label");
 const promoTitle = document.getElementById("promo-title");
 const promoCopy = document.getElementById("promo-copy");
 const promoGuestActions = document.getElementById("promo-guest-actions");
 const flaggedReviewCard = document.getElementById("flagged-review-card");
-const flaggedStatCard = document.getElementById("flagged-stat-card");
 
 const utilityDrawer = document.getElementById("utility-drawer");
 const closeDrawerButton = document.getElementById("close-drawer");
-const sessionHistoryPanel = document.getElementById("session-history-panel");
 const moodPanel = document.getElementById("mood-panel");
 const resourcesPanel = document.getElementById("resources-panel");
 const settingsPanel = document.getElementById("settings-panel");
@@ -79,12 +72,10 @@ const helpPanel = document.getElementById("help-panel");
 const textSizeSelect = document.getElementById("text-size-select");
 const reduceMotionToggle = document.getElementById("reduce-motion-toggle");
 const resetPreferencesButton = document.getElementById("reset-preferences");
-const settingsStatus = document.getElementById("settings-status");
 const helpStartChatButton = document.getElementById("help-start-chat");
 const helpOpenResourcesButton = document.getElementById("help-open-resources");
+const messageInput = document.getElementById("message");
 
-let currentUser = null;
-let currentSessionId = null;
 const sidebarButtons = [
     newChatButton,
     loadSessionsButton,
@@ -94,8 +85,23 @@ const sidebarButtons = [
     openSettingsButton,
     openHelpButton,
 ].filter(Boolean);
+
 const preferenceStorageKey = "mental-health-sidebar-preferences";
-const csrfMetaTag = document.querySelector('meta[name="csrf-token"]');
+
+let currentUser = null;
+let currentSessionId = null;
+let currentTranscriptMessages = [];
+let currentSessions = [];
+
+function setChatStatus(message = "", isError = false) {
+    if (!chatStatus) {
+        return;
+    }
+
+    chatStatus.textContent = message;
+    chatStatus.classList.toggle("hidden", !message);
+    chatStatus.classList.toggle("error-text", Boolean(message && isError));
+}
 
 function isSupportUser(user = currentUser) {
     return Boolean(user && ["admin", "support"].includes(user.role));
@@ -114,12 +120,8 @@ function getCsrfToken() {
         return cookieToken;
     }
 
-    const metaToken = csrfMetaTag ? csrfMetaTag.content : "";
-    if (!metaToken || metaToken === "NOTPROVIDED") {
-        return "";
-    }
-
-    return metaToken;
+    const metaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
+    return metaToken === "NOTPROVIDED" ? "" : metaToken;
 }
 
 function getFlaggedDefaultMessage(user = currentUser) {
@@ -134,6 +136,35 @@ function getFlaggedDefaultMessage(user = currentUser) {
     return "Flagged review is only available to support staff.";
 }
 
+function setStepState(step, state) {
+    if (!step) {
+        return;
+    }
+
+    step.classList.remove("active-step", "done-step");
+
+    if (state === "active") {
+        step.classList.add("active-step");
+    }
+
+    if (state === "done") {
+        step.classList.add("done-step");
+    }
+}
+
+function updateOrderedFlow() {
+    if (!currentUser) {
+        setStepState(stepRegister, "active");
+        setStepState(stepLogin, "");
+        setStepState(stepChat, "");
+        return;
+    }
+
+    setStepState(stepRegister, "done");
+    setStepState(stepLogin, "done");
+    setStepState(stepChat, currentSessionId ? "done" : "active");
+}
+
 function setActiveSidebarButton(activeButton) {
     sidebarButtons.forEach((button) => {
         button.classList.toggle("active-nav", button === activeButton);
@@ -141,7 +172,31 @@ function setActiveSidebarButton(activeButton) {
 }
 
 function shouldReduceMotion() {
-    return Boolean(reduceMotionToggle && reduceMotionToggle.checked);
+    return Boolean(reduceMotionToggle?.checked);
+}
+
+function openAuthPanel(mode) {
+    if (!authModal || !loginPanel || !registerPanel || !accountSummary) {
+        return;
+    }
+
+    const resolvedMode = currentUser && mode === "account" ? "account" : mode;
+    authModal.classList.remove("hidden");
+    loginPanel.classList.toggle("hidden", resolvedMode !== "login");
+    registerPanel.classList.toggle("hidden", resolvedMode !== "register");
+    accountSummary.classList.toggle("hidden", resolvedMode !== "account");
+}
+
+function closeAuthPanel() {
+    authModal?.classList.add("hidden");
+}
+
+function openDrawer() {
+    utilityDrawer?.classList.remove("hidden");
+}
+
+function closeDrawer() {
+    utilityDrawer?.classList.add("hidden");
 }
 
 function scrollSectionIntoView(section) {
@@ -163,6 +218,383 @@ function openDrawerSection(section, activeButton) {
         setActiveSidebarButton(activeButton);
     }
     scrollSectionIntoView(section);
+}
+
+function toggleChatEmpty(isEmpty) {
+    heroEmpty?.classList.toggle("hidden", !isEmpty);
+    chatTranscript?.classList.toggle("hidden", isEmpty);
+}
+
+function updateAuthChrome(user) {
+    const isAuthenticated = Boolean(user);
+    const accountName = user ? user.display_name || user.username : "Guest";
+
+    guestActions?.classList.toggle("hidden", isAuthenticated);
+    userActions?.classList.toggle("hidden", !isAuthenticated);
+    promoCard?.classList.toggle("hidden", isAuthenticated);
+    promoGuestActions?.classList.toggle("hidden", isAuthenticated);
+    openAdminPanelButton?.classList.toggle("hidden", !isSupportUser(user));
+
+    if (topbarUserLabel) {
+        topbarUserLabel.textContent = accountName;
+    }
+    if (promoTitle) {
+        promoTitle.textContent = isAuthenticated ? `Welcome, ${accountName}` : "Get support tailored to you";
+    }
+    if (promoCopy) {
+        promoCopy.textContent = isAuthenticated
+            ? "Your saved chats, mood check-ins, and support resources are ready when you are."
+            : "Log in to save chats, mood check-ins, and support resources.";
+    }
+}
+
+function updateSupportChrome(user) {
+    const canReviewFlagged = isSupportUser(user);
+
+    loadFlaggedButton?.classList.toggle("hidden", !canReviewFlagged);
+    flaggedReviewCard?.classList.toggle("hidden", !canReviewFlagged);
+    flaggedStatCard?.classList.toggle("hidden", !canReviewFlagged);
+
+    if (!canReviewFlagged && factFlaggedCount) {
+        factFlaggedCount.textContent = "0";
+    }
+
+    if (flaggedList) {
+        flaggedList.className = "flagged-list empty-state";
+        flaggedList.textContent = getFlaggedDefaultMessage(user);
+    }
+}
+
+function setActiveUser(user) {
+    currentUser = user;
+
+    const usernameInput = document.getElementById("username");
+    if (usernameInput) {
+        usernameInput.value = user ? user.username : "";
+    }
+
+    if (activeUser) {
+        activeUser.textContent = user ? user.display_name || user.username : "Guest";
+    }
+    if (activeUserMeta) {
+        activeUserMeta.textContent = user
+            ? `${user.username} is signed in and ready to continue.`
+            : "Register or log in to begin.";
+    }
+    if (chatTitle) {
+        chatTitle.textContent = user
+            ? `Welcome back, ${user.display_name || user.username}`
+            : "What's on your mind today?";
+    }
+
+    updateAuthChrome(user);
+    updateSupportChrome(user);
+    updateOrderedFlow();
+}
+
+function setSessionSummary(session) {
+    const messages = Array.isArray(session?.messages) ? session.messages : [];
+    currentSessionId = session ? session.id : null;
+
+    if (activeSessionMeta) {
+        activeSessionMeta.textContent = session
+            ? `${session.status} conversation with ${messages.length} saved messages.`
+            : "A calmer, structured assistant for student wellbeing.";
+    }
+
+    updateOrderedFlow();
+}
+
+function setSafetySummary(assessment) {
+    const categories = Array.isArray(assessment?.resource_categories)
+        ? assessment.resource_categories
+        : [];
+
+    if (activeSafetyMeta) {
+        activeSafetyMeta.textContent = assessment
+            ? `Sentiment: ${assessment.sentiment}. Categories: ${categories.join(", ")}.`
+            : "Risk detection updates after each message.";
+    }
+}
+
+function escapeHtml(value = "") {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function scrollTranscriptToBottom() {
+    if (!chatTranscript || chatTranscript.classList.contains("hidden")) {
+        return;
+    }
+
+    chatTranscript.scrollTop = chatTranscript.scrollHeight;
+}
+
+function renderTranscript(messages = []) {
+    const safeMessages = Array.isArray(messages) ? messages : [];
+    currentTranscriptMessages = safeMessages;
+
+    if (!safeMessages.length) {
+        chatTranscript.innerHTML = "";
+        toggleChatEmpty(true);
+        return;
+    }
+
+    toggleChatEmpty(false);
+
+    chatTranscript.innerHTML = safeMessages.map((entry) => {
+        const source = entry.source ? entry.source.replace("_", " ") : "system";
+        const content = escapeHtml(entry.content || "").replace(/\n/g, "<br>");
+        const isGenerating = Boolean(entry.isGenerating);
+        const bodyMarkup = isGenerating
+            ? `
+                <div class="message-streaming" aria-live="polite">
+                    <div class="typing-indicator" aria-hidden="true">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <span class="message-streaming-label">Generating a response...</span>
+                </div>
+            `
+            : `<p>${content}</p>`;
+
+        return `
+            <article class="message-row ${entry.role} ${isGenerating ? "generating" : ""}">
+                <div class="avatar">${entry.role === "assistant" ? "S" : "Y"}</div>
+                <div class="message-body">
+                    <p class="message-role">${entry.role === "assistant" ? "Mental Health Assistant" : "You"}</p>
+                    ${bodyMarkup}
+                    <span class="message-meta">${entry.risk_level} risk | ${source}</span>
+                </div>
+            </article>
+        `;
+    }).join("");
+
+    scrollTranscriptToBottom();
+}
+
+function renderSessions(sessions = []) {
+    const safeSessions = Array.isArray(sessions) ? sessions : [];
+    currentSessions = safeSessions;
+
+    if (factSessionCount) {
+        factSessionCount.textContent = safeSessions.length;
+    }
+
+    if (!safeSessions.length) {
+        sessionList.className = "session-list empty-state";
+        sessionList.textContent = currentUser
+            ? "No saved chats yet. Start a conversation and it will appear here."
+            : "Log in to browse saved chats.";
+        return;
+    }
+
+    sessionList.className = "session-list";
+    sessionList.innerHTML = safeSessions.map((session) => `
+        <button type="button" data-session-id="${session.id}" class="session-item ${Number(session.id) === currentSessionId ? "active" : ""}">
+            <strong>${escapeHtml(session.title || "Support chat")}</strong>
+            <span>${escapeHtml(session.last_risk_level || "low")} risk</span>
+        </button>
+    `).join("");
+}
+
+function renderResources(resources = []) {
+    const safeResources = Array.isArray(resources) ? resources : [];
+
+    if (factResourceCount) {
+        factResourceCount.textContent = safeResources.length;
+    }
+    resourcesList.innerHTML = "";
+
+    safeResources.forEach((resource) => {
+        const card = document.createElement("article");
+        card.className = `resource-item ${resource.is_emergency ? "emergency" : ""}`;
+        card.innerHTML = `
+            <p class="resource-tag">${escapeHtml(resource.category || "general")}</p>
+            <h3>${escapeHtml(resource.title || "Support resource")}</h3>
+            <p>${escapeHtml(resource.description || "")}</p>
+            ${resource.url ? `<a href="${resource.url}" target="_blank" rel="noreferrer">Open resource</a>` : ""}
+        `;
+        resourcesList.appendChild(card);
+    });
+}
+
+function renderFlagged(flagged = []) {
+    const safeFlagged = Array.isArray(flagged) ? flagged : [];
+
+    if (factFlaggedCount) {
+        factFlaggedCount.textContent = safeFlagged.length;
+    }
+
+    if (!safeFlagged.length) {
+        flaggedList.className = "flagged-list empty-state";
+        flaggedList.textContent = "No flagged conversations were returned.";
+        return;
+    }
+
+    flaggedList.className = "flagged-list";
+    flaggedList.innerHTML = safeFlagged.map((item) => `
+        <article class="flagged-item">
+            <h3>Session #${item.session_id}</h3>
+            <p>${escapeHtml(item.content || "")}</p>
+            <span>${escapeHtml(item.risk_level || "low")} risk | ${escapeHtml(item.sentiment || "neutral")} sentiment</span>
+        </article>
+    `).join("");
+}
+
+async function postJson(url, payload = {}) {
+    const csrfToken = getCsrfToken();
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+        },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        const firstError = Object.values(data)[0];
+        const message = Array.isArray(firstError) ? firstError[0] : firstError;
+        throw new Error(message || `Request failed with status ${response.status}`);
+    }
+
+    return data;
+}
+
+async function loadCurrentUser() {
+    try {
+        const response = await fetch("/api/users/me/", {
+            credentials: "same-origin",
+        });
+
+        if (!response.ok) {
+            return;
+        }
+
+        const payload = await response.json();
+        if (payload.authenticated && payload.user) {
+            setActiveUser(payload.user);
+            await loadSessions();
+        }
+    } catch (error) {
+        console.error("Could not load current user:", error);
+    }
+}
+
+async function loadSessions() {
+    if (!currentUser) {
+        dashboardStatus.textContent = "Log in to view saved chats.";
+        renderSessions([]);
+        return;
+    }
+
+    dashboardStatus.textContent = "Loading sessions...";
+
+    try {
+        const response = await fetch("/api/chat/sessions/", {
+            credentials: "same-origin",
+        });
+
+        if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const sessions = await response.json();
+        dashboardStatus.textContent = sessions.length ? "" : "No saved chats yet.";
+        renderSessions(sessions);
+    } catch (error) {
+        console.error("Load sessions error:", error);
+        dashboardStatus.textContent = "Could not load sessions yet.";
+    }
+}
+
+async function loadResources() {
+    resourcesStatus.textContent = "Loading resources...";
+
+    try {
+        const response = await fetch("/api/recommendations/", {
+            credentials: "same-origin",
+        });
+
+        if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const resources = await response.json();
+        resourcesStatus.textContent = resources.length ? "" : "No resources have been added yet.";
+        renderResources(resources);
+    } catch (error) {
+        console.error("Load resources error:", error);
+        resourcesStatus.textContent = "Could not load resources yet.";
+    }
+}
+
+async function loadFlaggedMessages() {
+    if (!isSupportUser()) {
+        flaggedList.className = "flagged-list empty-state";
+        flaggedList.textContent = getFlaggedDefaultMessage();
+        return;
+    }
+
+    flaggedList.className = "flagged-list empty-state";
+    flaggedList.textContent = "Loading flagged cases...";
+
+    try {
+        const response = await fetch("/api/admin-panel/flagged-messages/", {
+            credentials: "same-origin",
+        });
+
+        if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        renderFlagged(payload.flagged_messages || []);
+    } catch (error) {
+        console.error("Load flagged error:", error);
+        flaggedList.textContent = "Support login is required to view flagged cases.";
+    }
+}
+
+function showMoodSection() {
+    openDrawerSection(moodPanel, showMoodPanelButton);
+    if (!currentUser) {
+        moodStatus.textContent = "Log in to save a mood check-in.";
+    }
+}
+
+async function showSessionHistory() {
+    setActiveSidebarButton(loadSessionsButton);
+    await loadSessions();
+}
+
+async function showResourcesSection() {
+    openDrawerSection(resourcesPanel, loadResourcesButton);
+    await loadResources();
+}
+
+async function showFlaggedSection() {
+    openDrawerSection(flaggedReviewCard, loadFlaggedButton);
+    await loadFlaggedMessages();
+}
+
+function showSettingsSection() {
+    openDrawerSection(settingsPanel, openSettingsButton);
+    if (settingsStatus) {
+        settingsStatus.textContent = "";
+    }
+}
+
+function showHelpSection() {
+    openDrawerSection(helpPanel, openHelpButton);
 }
 
 function getDefaultPreferences() {
@@ -195,365 +627,36 @@ function applyPreferences(preferences, statusMessage = "") {
     document.body.dataset.textSize = preferences.textSize;
     document.documentElement.style.fontSize = fontSizeMap[preferences.textSize] || fontSizeMap.comfortable;
     document.body.classList.toggle("reduce-motion", preferences.reduceMotion);
-    textSizeSelect.value = preferences.textSize;
-    reduceMotionToggle.checked = preferences.reduceMotion;
-    settingsStatus.textContent = statusMessage;
-}
 
-function readPreferencesFromControls() {
-    return {
-        textSize: textSizeSelect.value,
-        reduceMotion: reduceMotionToggle.checked,
-    };
+    if (textSizeSelect) {
+        textSizeSelect.value = preferences.textSize;
+    }
+    if (reduceMotionToggle) {
+        reduceMotionToggle.checked = preferences.reduceMotion;
+    }
+    if (settingsStatus) {
+        settingsStatus.textContent = statusMessage;
+    }
 }
 
 function savePreferences(statusMessage = "Preferences saved.") {
-    const preferences = readPreferencesFromControls();
+    const preferences = {
+        textSize: textSizeSelect?.value || "comfortable",
+        reduceMotion: Boolean(reduceMotionToggle?.checked),
+    };
     saveStoredPreferences(preferences);
     applyPreferences(preferences, statusMessage);
 }
 
-function resetWorkspace(statusMessage = "New chat ready.") {
+function resetWorkspace(statusMessage = "") {
     setSessionSummary(null);
     setSafetySummary(null);
     renderTranscript([]);
-    document.getElementById("message").value = "";
-    chatStatus.textContent = statusMessage;
-    responseCard.classList.add("hidden");
-}
-
-function setStepState(step, state) {
-    step.classList.remove("active-step", "done-step");
-    if (state === "active") {
-        step.classList.add("active-step");
+    const messageInput = document.getElementById("message");
+    if (messageInput) {
+        messageInput.value = "";
     }
-    if (state === "done") {
-        step.classList.add("done-step");
-    }
-}
-
-function updateOrderedFlow() {
-    if (!currentUser) {
-        setStepState(stepRegister, "active");
-        setStepState(stepLogin, "");
-        setStepState(stepChat, "");
-        return;
-    }
-
-    setStepState(stepRegister, "done");
-    setStepState(stepLogin, "done");
-    setStepState(stepChat, currentSessionId ? "done" : "active");
-}
-
-function openAuthPanel(mode) {
-    const resolvedMode = currentUser ? "account" : mode;
-    authModal.classList.remove("hidden");
-    loginPanel.classList.toggle("hidden", resolvedMode !== "login");
-    registerPanel.classList.toggle("hidden", resolvedMode !== "register");
-    accountSummary.classList.toggle("hidden", resolvedMode !== "account");
-}
-
-function closeAuthPanel() {
-    authModal.classList.add("hidden");
-}
-
-function openDrawer() {
-    utilityDrawer.classList.remove("hidden");
-}
-
-function closeDrawer() {
-    utilityDrawer.classList.add("hidden");
-}
-
-function toggleChatEmpty(isEmpty) {
-    heroEmpty.classList.toggle("hidden", !isEmpty);
-    chatTranscript.classList.toggle("hidden", isEmpty);
-}
-
-function updateAuthChrome(user) {
-    const isAuthenticated = Boolean(user);
-    const accountName = user ? (user.display_name || user.username) : "Guest";
-    const canAccessAdmin = isSupportUser(user);
-
-    guestActions.classList.toggle("hidden", isAuthenticated);
-    userActions.classList.toggle("hidden", !isAuthenticated);
-    promoCard.classList.toggle("hidden", isAuthenticated);
-    promoGuestActions.classList.toggle("hidden", isAuthenticated);
-    openAdminPanelButton.classList.toggle("hidden", !canAccessAdmin);
-
-    topbarUserLabel.textContent = accountName;
-    promoTitle.textContent = isAuthenticated ? `Welcome, ${accountName}` : "Get support tailored to you";
-    promoCopy.textContent = isAuthenticated
-        ? "Your saved chats, mood check-ins, and support resources are ready when you are."
-        : "Log in to save chats, mood check-ins, and support resources.";
-}
-
-function updateSupportChrome(user) {
-    const canReviewFlagged = isSupportUser(user);
-
-    loadFlaggedButton.classList.toggle("hidden", !canReviewFlagged);
-    flaggedReviewCard.classList.toggle("hidden", !canReviewFlagged);
-    flaggedStatCard.classList.toggle("hidden", !canReviewFlagged);
-
-    if (!canReviewFlagged) {
-        factFlaggedCount.textContent = "0";
-    }
-
-    flaggedList.className = "flagged-list empty-state";
-    flaggedList.textContent = getFlaggedDefaultMessage(user);
-}
-
-function setActiveUser(user) {
-    currentUser = user;
-    document.getElementById("username").value = user ? user.username : "";
-    activeUser.textContent = user ? (user.display_name || user.username) : "Guest";
-    activeUserMeta.textContent = user
-        ? `${user.username} is signed in and ready to continue.`
-        : "Register or log in to begin.";
-    chatTitle.textContent = user ? `Welcome back, ${user.display_name || user.username}` : "What's on your mind today?";
-    updateAuthChrome(user);
-    updateSupportChrome(user);
-    updateOrderedFlow();
-}
-
-function setSessionSummary(session) {
-    currentSessionId = session ? session.id : null;
-    activeSession.textContent = session ? `#${session.id}` : "No session";
-    activeSessionMeta.textContent = session
-        ? `${session.status} conversation with ${session.messages.length} saved messages.`
-        : "A calmer, structured assistant for student wellbeing.";
-    updateOrderedFlow();
-}
-
-function setSafetySummary(assessment) {
-    activeSafety.textContent = assessment ? `${assessment.risk_level.toUpperCase()} risk` : "Monitoring";
-    activeSafetyMeta.textContent = assessment
-        ? `Sentiment: ${assessment.sentiment}. Categories: ${assessment.resource_categories.join(", ")}.`
-        : "Risk detection updates after each message.";
-}
-
-function syncResponseCardFromSession(session) {
-    const messages = session.messages || [];
-    const lastAssistantMessage = [...messages].reverse().find((entry) => entry.role === "assistant");
-    const lastUserMessage = [...messages].reverse().find((entry) => entry.role === "user");
-
-    if (!lastAssistantMessage) {
-        responseCard.classList.add("hidden");
-        return;
-    }
-
-    assistantMessage.textContent = lastAssistantMessage.content;
-    sentiment.textContent = lastUserMessage ? lastUserMessage.sentiment : "neutral";
-    riskLevel.textContent = session.last_risk_level || lastAssistantMessage.risk_level;
-    responseCard.classList.remove("hidden");
-    setSafetySummary(
-        lastUserMessage
-            ? {
-                risk_level: lastUserMessage.risk_level,
-                sentiment: lastUserMessage.sentiment,
-                resource_categories: lastUserMessage.detected_categories || [],
-            }
-            : null
-    );
-}
-
-function renderTranscript(messages) {
-    if (!messages.length) {
-        chatTranscript.innerHTML = "";
-        toggleChatEmpty(true);
-        return;
-    }
-
-    toggleChatEmpty(false);
-    chatTranscript.innerHTML = messages.map((entry) => `
-        <article class="message-row ${entry.role}">
-            <div class="avatar">${entry.role === "assistant" ? "S" : "Y"}</div>
-            <div class="message-body">
-                <p class="message-role">${entry.role === "assistant" ? "Mental Health Assistant" : "You"}</p>
-                <p>${entry.content}</p>
-                <span class="message-meta">${entry.risk_level} risk | ${entry.source.replace("_", " ")}</span>
-            </div>
-        </article>
-    `).join("");
-}
-
-function renderSessions(sessions) {
-    factSessionCount.textContent = sessions.length;
-    if (!sessions.length) {
-        sessionList.className = "session-list empty-state";
-        sessionList.textContent = currentUser
-            ? "No saved chats yet. Start a conversation and it will appear here."
-            : "Log in to browse saved chats.";
-        return;
-    }
-
-    sessionList.className = "session-list";
-    sessionList.innerHTML = sessions.map((session) => `
-        <button type="button" data-session-id="${session.id}" class="session-item ${session.id === currentSessionId ? "active" : ""}">
-            <strong>${session.title}</strong>
-            <span>${session.last_risk_level} risk</span>
-        </button>
-    `).join("");
-}
-
-function renderResources(resources) {
-    factResourceCount.textContent = resources.length;
-    resourcesList.innerHTML = "";
-    resources.forEach((resource) => {
-        const card = document.createElement("article");
-        card.className = `resource-item ${resource.is_emergency ? "emergency" : ""}`;
-        card.innerHTML = `
-            <p class="resource-tag">${resource.category}</p>
-            <h3>${resource.title}</h3>
-            <p>${resource.description}</p>
-            ${resource.url ? `<a href="${resource.url}" target="_blank" rel="noreferrer">Open resource</a>` : ""}
-        `;
-        resourcesList.appendChild(card);
-    });
-}
-
-function renderFlagged(flagged) {
-    factFlaggedCount.textContent = flagged.length;
-    if (!flagged.length) {
-        flaggedList.className = "flagged-list empty-state";
-        flaggedList.textContent = "No flagged conversations were returned.";
-        return;
-    }
-
-    flaggedList.className = "flagged-list";
-    flaggedList.innerHTML = flagged.map((item) => `
-        <article class="flagged-item">
-            <h3>Session #${item.session_id}</h3>
-            <p>${item.content}</p>
-            <span>${item.risk_level} risk | ${item.sentiment} sentiment</span>
-        </article>
-    `).join("");
-}
-
-async function postJson(url, payload = {}) {
-    const response = await fetch(url, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": getCsrfToken(),
-        },
-        credentials: "same-origin",
-        body: JSON.stringify(payload),
-    });
-
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        const firstError = Object.values(data)[0];
-        const message = Array.isArray(firstError) ? firstError[0] : firstError;
-        throw new Error(message || `Request failed with status ${response.status}`);
-    }
-
-    return data;
-}
-
-async function loadCurrentUser() {
-    try {
-        const response = await fetch("/api/users/me/");
-        if (!response.ok) {
-            return;
-        }
-        const payload = await response.json();
-        if (payload.authenticated && payload.user) {
-            setActiveUser(payload.user);
-            await loadSessions();
-        }
-    } catch (error) {
-        // no-op
-    }
-}
-
-async function loadSessions() {
-    const username = document.getElementById("username").value.trim();
-    if (!username) {
-        dashboardStatus.textContent = "Log in to view saved chats.";
-        renderSessions([]);
-        return;
-    }
-
-    dashboardStatus.textContent = "Loading sessions...";
-    try {
-        const response = await fetch(`/api/chat/sessions/?username=${encodeURIComponent(username)}`);
-        if (!response.ok) {
-            throw new Error(`Request failed with status ${response.status}`);
-        }
-        const sessions = await response.json();
-        dashboardStatus.textContent = "";
-        renderSessions(sessions);
-    } catch (error) {
-        dashboardStatus.textContent = "Could not load sessions yet.";
-    }
-}
-
-async function loadResources() {
-    resourcesStatus.textContent = "Loading resources...";
-    try {
-        const response = await fetch("/api/recommendations/");
-        if (!response.ok) {
-            throw new Error(`Request failed with status ${response.status}`);
-        }
-        const resources = await response.json();
-        resourcesStatus.textContent = resources.length ? "" : "No resources have been added yet.";
-        renderResources(resources);
-    } catch (error) {
-        resourcesStatus.textContent = "Could not load resources yet.";
-    }
-}
-
-async function loadFlaggedMessages() {
-    if (!isSupportUser()) {
-        flaggedList.className = "flagged-list empty-state";
-        flaggedList.textContent = getFlaggedDefaultMessage();
-        return;
-    }
-
-    flaggedList.className = "flagged-list empty-state";
-    flaggedList.textContent = "Loading flagged cases...";
-    try {
-        const response = await fetch("/api/admin-panel/flagged-messages/");
-        if (!response.ok) {
-            throw new Error(`Request failed with status ${response.status}`);
-        }
-        const payload = await response.json();
-        renderFlagged(payload.flagged_messages || []);
-    } catch (error) {
-        flaggedList.textContent = "Support login is required to view flagged cases.";
-    }
-}
-
-async function showSessionHistory() {
-    openDrawerSection(sessionHistoryPanel, loadSessionsButton);
-    await loadSessions();
-}
-
-function showMoodSection() {
-    openDrawerSection(moodPanel, showMoodPanelButton);
-    if (!currentUser) {
-        moodStatus.textContent = "Log in to save a mood check-in.";
-    }
-}
-
-async function showResourcesSection() {
-    openDrawerSection(resourcesPanel, loadResourcesButton);
-    await loadResources();
-}
-
-async function showFlaggedSection() {
-    openDrawerSection(flaggedReviewCard, loadFlaggedButton);
-    await loadFlaggedMessages();
-}
-
-function showSettingsSection() {
-    openDrawerSection(settingsPanel, openSettingsButton);
-    settingsStatus.textContent = "";
-}
-
-function showHelpSection() {
-    openDrawerSection(helpPanel, openHelpButton);
+    setChatStatus(statusMessage);
 }
 
 registerForm.addEventListener("submit", async (event) => {
@@ -562,6 +665,7 @@ registerForm.addEventListener("submit", async (event) => {
 
     const password = document.getElementById("register-password").value;
     const confirmPassword = document.getElementById("register-confirm-password").value;
+
     if (password !== confirmPassword) {
         registerStatus.textContent = "Passwords do not match.";
         return;
@@ -585,6 +689,7 @@ registerForm.addEventListener("submit", async (event) => {
         setStepState(stepLogin, "active");
         openAuthPanel("login");
     } catch (error) {
+        console.error("Register error:", error);
         registerStatus.textContent = error.message || "Could not create the account yet.";
     }
 });
@@ -605,61 +710,172 @@ loginForm.addEventListener("submit", async (event) => {
         closeAuthPanel();
         await loadSessions();
     } catch (error) {
+        console.error("Login error:", error);
         loginStatus.textContent = error.message || "Could not log in yet.";
     }
 });
 
 chatForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    chatStatus.textContent = "Sending message...";
+    const messageText = messageInput.value.trim();
 
-    const payload = {
-        username: document.getElementById("username").value,
-        message: document.getElementById("message").value.trim(),
-    };
-
-    if (currentSessionId) {
-        payload.session_id = currentSessionId;
-    }
-
-    if (!payload.username) {
-        chatStatus.textContent = "Please log in before chatting.";
+    if (!currentUser) {
+        setChatStatus("Please log in before chatting.", true);
         openAuthPanel("login");
         return;
     }
 
-    if (!payload.message) {
-        chatStatus.textContent = "Type a message first.";
+    if (!messageText) {
+        setChatStatus("Type a message first.", true);
         return;
     }
 
-    try {
-        const data = await postJson("/api/chat/message/", payload);
-        const messages = data.session.messages;
-        const lastAssistantMessage = [...messages].reverse().find((entry) => entry.role === "assistant");
-
-        assistantMessage.textContent = lastAssistantMessage ? lastAssistantMessage.content : "No response received.";
-        sentiment.textContent = data.assessment.sentiment;
-        riskLevel.textContent = data.assessment.risk_level;
-        responseCard.classList.remove("hidden");
-        chatStatus.textContent = "Message sent successfully.";
-        setSessionSummary(data.session);
-        setSafetySummary(data.assessment);
-        renderTranscript(messages);
-        renderResources(data.resources);
-        await loadSessions();
-        document.getElementById("message").value = "";
-    } catch (error) {
-        chatStatus.textContent = error.message || "Could not send message yet.";
+    const payload = { message: messageText };
+    if (currentSessionId) {
+        payload.session_id = currentSessionId;
     }
+
+    const baseTranscriptMessages = [...currentTranscriptMessages];
+
+    try {
+        setChatStatus("");
+        const optimisticMessages = [
+            ...baseTranscriptMessages,
+            {
+                role: "user",
+                content: payload.message,
+                risk_level: "pending",
+                source: "user",
+            },
+            {
+                role: "assistant",
+                content: "",
+                risk_level: "generating",
+                source: "ai_service",
+                isGenerating: true,
+            },
+        ];
+
+        renderTranscript(optimisticMessages);
+        messageInput.value = "";
+
+        const response = await fetch("/api/chat/message/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCsrfToken(),
+            },
+            credentials: "same-origin",
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+        }
+        if (!response.body) {
+            throw new Error("Streaming is not available because the response body is missing.");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let finalData = null;
+        let streamedAssistantContent = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+
+            if (value) {
+                buffer += decoder.decode(value, { stream: true });
+            }
+
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+                const cleanLine = line.trim();
+                if (!cleanLine) {
+                    continue;
+                }
+
+                try {
+                    const chunk = JSON.parse(cleanLine);
+
+                    if (chunk.type === "content") {
+                        streamedAssistantContent += chunk.data;
+                        optimisticMessages[optimisticMessages.length - 1].content = streamedAssistantContent;
+                        optimisticMessages[optimisticMessages.length - 1].risk_level = "streaming";
+                        optimisticMessages[optimisticMessages.length - 1].isGenerating = false;
+                        renderTranscript(optimisticMessages);
+                    }
+
+                    if (chunk.type === "complete") {
+                        finalData = chunk;
+                    }
+                } catch (error) {
+                    console.error("Could not parse stream chunk:", error, cleanLine);
+                }
+            }
+
+            if (done) {
+                break;
+            }
+        }
+
+        if (buffer.trim()) {
+            try {
+                const chunk = JSON.parse(buffer.trim());
+                if (chunk.type === "complete") {
+                    finalData = chunk;
+                }
+            } catch (error) {
+                console.error("Could not parse final stream chunk:", error, buffer);
+            }
+        }
+
+        if (!finalData || !finalData.session) {
+            throw new Error("Response received but final session data is missing.");
+        }
+
+        setSessionSummary(finalData.session);
+        setSafetySummary(finalData.assessment);
+        renderTranscript(Array.isArray(finalData.session.messages) ? finalData.session.messages : []);
+        renderResources(finalData.resources || []);
+        if (finalData.response_source && finalData.response_source !== "ai_service") {
+            setChatStatus("Fallback support guidance was used for this reply.", false);
+        } else {
+            setChatStatus("");
+        }
+
+        await loadSessions();
+    } catch (error) {
+        console.error("Chat error:", error);
+        setChatStatus(error.message || "Could not send message yet.", true);
+        messageInput.value = payload.message;
+        renderTranscript(baseTranscriptMessages);
+    }
+});
+
+messageInput?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey) {
+        return;
+    }
+
+    event.preventDefault();
+    chatForm?.requestSubmit();
 });
 
 moodForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     moodStatus.textContent = "Saving check-in...";
 
+    if (!currentUser) {
+        moodStatus.textContent = "Please log in before saving a mood check-in.";
+        openAuthPanel("login");
+        return;
+    }
+
     const payload = {
-        username: document.getElementById("username").value,
         mood: document.getElementById("mood").value,
         notes: document.getElementById("mood-notes").value,
         stress_level: document.getElementById("stress-level").value,
@@ -669,71 +885,58 @@ moodForm.addEventListener("submit", async (event) => {
         payload.session_id = currentSessionId;
     }
 
-    if (!payload.username) {
-        moodStatus.textContent = "Please log in before saving a mood check-in.";
-        openAuthPanel("login");
-        return;
-    }
-
     try {
         await postJson("/api/chat/mood-checkins/", payload);
         moodStatus.textContent = "Mood check-in saved.";
         moodForm.reset();
         document.getElementById("stress-level").value = "3";
     } catch (error) {
+        console.error("Mood check-in error:", error);
         moodStatus.textContent = error.message || "Could not save the mood check-in yet.";
     }
 });
 
 sessionList.addEventListener("click", async (event) => {
     const button = event.target.closest(".session-item");
-    if (!button) {
+    if (!button || !currentUser) {
         return;
     }
 
     const sessionId = Number(button.dataset.sessionId);
-    const username = document.getElementById("username").value.trim();
-    if (!sessionId || !username) {
+    if (!sessionId) {
         return;
     }
 
     try {
         dashboardStatus.textContent = "Opening saved chat...";
-        const response = await fetch(`/api/chat/sessions/?username=${encodeURIComponent(username)}`);
+        const response = await fetch(`/api/chat/sessions/${sessionId}/`, {
+            credentials: "same-origin",
+        });
+
         if (!response.ok) {
             throw new Error(`Request failed with status ${response.status}`);
         }
 
-        const sessions = await response.json();
-        const match = sessions.find((session) => session.id === sessionId);
-        if (!match) {
-            dashboardStatus.textContent = "That saved chat is no longer available.";
-            return;
-        }
-
+        const session = await response.json();
         dashboardStatus.textContent = "";
-        setSessionSummary(match);
-        renderTranscript(match.messages || []);
-        syncResponseCardFromSession(match);
-        renderSessions(sessions);
-        closeDrawer();
+        setSessionSummary(session);
+        renderTranscript(Array.isArray(session.messages) ? session.messages : []);
+        renderSessions(currentSessions.map((item) => (Number(item.id) === sessionId ? session : item)));
         setActiveSidebarButton(loadSessionsButton);
     } catch (error) {
-        dashboardStatus.textContent = "Could not open that saved chat yet.";
+        console.error("Open session error:", error);
+        dashboardStatus.textContent = error.message || "Could not open that saved chat yet.";
     }
 });
 
-newChatButton.addEventListener("click", () => {
-    setActiveSidebarButton(newChatButton);
+function handleNewChat(statusMessage = "New chat ready.") {
     closeDrawer();
-    resetWorkspace("New chat ready.");
-});
+    setActiveSidebarButton(newChatButton);
+    resetWorkspace(statusMessage);
+}
 
-sidebarHomeButton.addEventListener("click", () => {
-    setActiveSidebarButton(newChatButton);
-    closeDrawer();
-    resetWorkspace("Home ready.");
-});
+newChatButton.addEventListener("click", () => handleNewChat("New chat ready."));
+sidebarHomeButton?.addEventListener("click", () => handleNewChat(""));
 
 loadSessionsButton.addEventListener("click", showSessionHistory);
 loadResourcesButton.addEventListener("click", showResourcesSection);
@@ -745,31 +948,29 @@ openHelpButton.addEventListener("click", showHelpSection);
 openLoginButton.addEventListener("click", () => openAuthPanel("login"));
 openLoginTopButton.addEventListener("click", () => openAuthPanel("login"));
 openRegisterButton.addEventListener("click", () => openAuthPanel("register"));
-openAdminPanelButton.addEventListener("click", () => {
+openAdminPanelButton?.addEventListener("click", () => {
     window.location.href = "/admin-support/";
 });
-openAccountButton.addEventListener("click", () => openAuthPanel("account"));
+openAccountButton?.addEventListener("click", () => openAuthPanel("account"));
 closeAuthModalButton.addEventListener("click", closeAuthPanel);
 closeDrawerButton.addEventListener("click", closeDrawer);
-textSizeSelect.addEventListener("change", () => savePreferences());
-reduceMotionToggle.addEventListener("change", () => savePreferences());
-resetPreferencesButton.addEventListener("click", () => {
+
+textSizeSelect?.addEventListener("change", () => savePreferences());
+reduceMotionToggle?.addEventListener("change", () => savePreferences());
+resetPreferencesButton?.addEventListener("click", () => {
     const defaults = getDefaultPreferences();
     saveStoredPreferences(defaults);
     applyPreferences(defaults, "Preferences reset.");
 });
-helpStartChatButton.addEventListener("click", () => {
-    closeDrawer();
-    setActiveSidebarButton(newChatButton);
-    resetWorkspace("New chat ready.");
-});
-helpOpenResourcesButton.addEventListener("click", showResourcesSection);
+helpStartChatButton?.addEventListener("click", () => handleNewChat("New chat ready."));
+helpOpenResourcesButton?.addEventListener("click", showResourcesSection);
 
 async function handleLogout() {
     try {
         await postJson("/api/users/logout/");
     } finally {
         setActiveUser(null);
+        currentSessions = [];
         renderSessions([]);
         resetWorkspace("You have logged out.");
         setActiveSidebarButton(newChatButton);
@@ -778,23 +979,30 @@ async function handleLogout() {
     }
 }
 
-logoutButton.addEventListener("click", handleLogout);
-logoutTopButton.addEventListener("click", handleLogout);
+logoutButton?.addEventListener("click", handleLogout);
+logoutTopButton?.addEventListener("click", handleLogout);
 
-authModal.addEventListener("click", (event) => {
+authModal?.addEventListener("click", (event) => {
     if (event.target === authModal) {
         closeAuthPanel();
     }
 });
 
-utilityDrawer.addEventListener("click", (event) => {
+utilityDrawer?.addEventListener("click", (event) => {
     if (event.target === utilityDrawer) {
         closeDrawer();
     }
 });
 
-applyPreferences(loadStoredPreferences());
-setActiveUser(null);
-resetWorkspace("");
-setActiveSidebarButton(newChatButton);
-loadCurrentUser();
+async function initializeApp() {
+    applyPreferences(loadStoredPreferences());
+    setActiveUser(null);
+    setSessionSummary(null);
+    setSafetySummary(null);
+    setChatStatus("");
+    toggleChatEmpty(true);
+    setActiveSidebarButton(newChatButton);
+    await loadCurrentUser();
+}
+
+initializeApp();
