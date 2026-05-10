@@ -31,10 +31,12 @@
             </div>
 
             <div class="sidebar-bottom">
-                <button class="nav-button" type="button">Settings</button>
-                <button class="nav-button" type="button">Help</button>
+                <div class="sidebar-utilities" aria-label="Utility links">
+                    <button class="nav-button utility-link" type="button">Settings</button>
+                    <button class="nav-button utility-link" type="button">Help</button>
+                </div>
 
-                <div class="promo-card">
+                <div id="sidebar-promo" class="promo-card">
                     <p class="promo-title">Get support tailored to you</p>
                     <p class="promo-copy">
                         Log in to save chats, mood check-ins, and support resources.
@@ -64,16 +66,6 @@
             </section>
 
             <footer class="composer-wrap">
-                <div id="chat-response" class="response-card hidden">
-                    <p id="assistant-message"></p>
-                    <div class="meta-grid">
-                        <span><strong>Sentiment:</strong> <span id="sentiment"></span></span>
-                        <span><strong>Risk:</strong> <span id="risk-level"></span></span>
-                        <span><strong>Session:</strong> <span id="active-session">No session</span></span>
-                        <span><strong>Status:</strong> <span id="active-safety">Monitoring</span></span>
-                    </div>
-                </div>
-
                 <form id="chat-form" class="composer">
                     <input id="username" name="username" type="hidden">
                     <div class="composer-inner">
@@ -82,7 +74,7 @@
                         <button type="submit" class="composer-send">Send</button>
                     </div>
                 </form>
-                <div id="chat-status" class="status-text center-status"></div>
+                <div id="chat-status" class="status-text center-status hidden" aria-live="polite"></div>
                 <p class="footer-copy">This assistant offers supportive guidance and referral help. It is not a licensed mental health professional.</p>
             </footer>
         </section>

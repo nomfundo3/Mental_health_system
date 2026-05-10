@@ -1,11 +1,12 @@
-from rest_framework import generics, status
+from rest_framework import generics
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.http import StreamingHttpResponse
+import json
 
 from apps.recommendations.models import ResourceRecommendation
-from services.response_service import generate_support_response
+from services.response_service import stream_support_response
 from services.sentiment_service import assess_message
 
 from .models import ChatMessage, ChatSession, MoodCheckIn
@@ -14,6 +15,15 @@ from .serializers import (
     ChatSessionSerializer,
     MoodCheckInSerializer,
 )
+
+
+def _build_session_title(message):
+    normalized = " ".join((message or "").strip().split())
+    if not normalized:
+        return "Support chat"
+    if len(normalized) <= 42:
+        return normalized
+    return f"{normalized[:37].rstrip()}....."
 
 def _can_access_session(user, session):
     return bool(
@@ -38,6 +48,17 @@ class ChatSessionListView(generics.ListAPIView):
                 return queryset.filter(user__username__iexact=username)
             return queryset
 
+        return queryset.filter(user=self.request.user)
+
+
+class ChatSessionDetailView(generics.RetrieveAPIView):
+    serializer_class = ChatSessionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = ChatSession.objects.order_by("-updated_at")
+        if self.request.user.is_staff or getattr(self.request.user, "role", "") in {"admin", "support"}:
+            return queryset
         return queryset.filter(user=self.request.user)
 
 
@@ -86,6 +107,9 @@ class ChatConversationView(APIView):
             source="rule_engine",
         )
 
+        if not session.title or session.title == "Support chat":
+            session.title = _build_session_title(message)
+
         resources = list(
             ResourceRecommendation.objects.filter(
                 category__in=assessment["resource_categories"],
@@ -103,51 +127,75 @@ class ChatConversationView(APIView):
             )
         )
 
-        response_payload = generate_support_response(
-            message=message,
-            assessment=assessment,
-            resources=resources,
-            user=user,
-        )
-        ChatMessage.objects.create(
-            session=session,
-            role="assistant",
-            content=response_payload["content"],
-            sentiment="neutral",
-            risk_level=assessment["risk_level"],
-            detected_categories=assessment["resource_categories"],
-            flagged=False,
-            confidence_score=assessment.get("confidence_score"),
-            fallback_used=response_payload["fallback_used"],
-            source=response_payload["source"],
-        )
+        def generate_stream():
+            content_parts = []
+            response_source = "fallback"
+            fallback_used = True
 
-        session.last_message_at = user_message.created_at
-        session.last_risk_level = assessment["risk_level"]
-        session.escalation_required = assessment["flagged"]
-        if assessment["risk_level"] == "high":
-            session.status = "escalated"
-        elif assessment["flagged"]:
-            session.status = "flagged"
-        else:
-            session.status = "active"
-        session.save(
-            update_fields=[
-                "last_message_at",
-                "last_risk_level",
-                "escalation_required",
-                "status",
-                "updated_at",
-            ]
-        )
+            for chunk_payload in stream_support_response(
+                message=message,
+                assessment=assessment,
+                resources=resources,
+                user=user,
+            ):
+                chunk_content = chunk_payload["content"]
+                response_source = chunk_payload["source"]
+                fallback_used = chunk_payload["fallback_used"]
 
-        session.refresh_from_db()
-        return Response(
-            {
+                if chunk_content:
+                    content_parts.append(chunk_content)
+                    yield json.dumps({"type": "content", "data": chunk_content}) + "\n"
+
+            assistant_content = "".join(content_parts).strip()
+
+            ChatMessage.objects.create(
+                session=session,
+                role="assistant",
+                content=assistant_content,
+                sentiment="neutral",
+                risk_level=assessment["risk_level"],
+                detected_categories=assessment["resource_categories"],
+                flagged=False,
+                confidence_score=assessment.get("confidence_score"),
+                fallback_used=fallback_used,
+                source=response_source,
+            )
+
+            session.last_message_at = user_message.created_at
+            session.last_risk_level = assessment["risk_level"]
+            session.escalation_required = assessment["flagged"]
+            if assessment["risk_level"] == "high":
+                session.status = "escalated"
+            elif assessment["flagged"]:
+                session.status = "flagged"
+            else:
+                session.status = "active"
+            session.save(
+                update_fields=[
+                    "last_message_at",
+                    "last_risk_level",
+                    "escalation_required",
+                    "status",
+                    "title",
+                    "updated_at",
+                ]
+            )
+
+            session.refresh_from_db()
+
+            final_data = {
+                "type": "complete",
                 "session": ChatSessionSerializer(session).data,
                 "assessment": assessment,
                 "resources": resources,
-                "response_source": response_payload["source"],
-            },
-            status=status.HTTP_200_OK,
+                "response_source": response_source,
+            }
+            yield json.dumps(final_data) + "\n"
+        
+        response = StreamingHttpResponse(
+            generate_stream(),
+            content_type="application/x-ndjson"
         )
+        response["Cache-Control"] = "no-cache"
+        response["X-Accel-Buffering"] = "no"
+        return response

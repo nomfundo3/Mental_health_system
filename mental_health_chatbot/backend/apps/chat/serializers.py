@@ -26,6 +26,7 @@ class ChatMessageSerializer(serializers.ModelSerializer):
 
 class ChatSessionSerializer(serializers.ModelSerializer):
     messages = ChatMessageSerializer(many=True, read_only=True)
+    title = serializers.SerializerMethodField()
 
     class Meta:
         model = ChatSession
@@ -42,6 +43,20 @@ class ChatSessionSerializer(serializers.ModelSerializer):
             "messages",
         ]
         read_only_fields = fields
+
+    def get_title(self, obj):
+        title = (obj.title or "").strip()
+        if title and title != "Support chat":
+            return title
+
+        first_user_message = obj.messages.filter(role="user").order_by("created_at").first()
+        if first_user_message and first_user_message.content:
+            normalized = " ".join(first_user_message.content.strip().split())
+            if len(normalized) <= 42:
+                return normalized
+            return f"{normalized[:37].rstrip()}....."
+
+        return title or "Support chat"
 
 
 class MoodCheckInSerializer(serializers.ModelSerializer):

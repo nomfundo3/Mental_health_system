@@ -1,4 +1,9 @@
-from services.llm_service import LlmServiceError, generate_chat_response, is_llm_enabled
+from services.llm_service import (
+    LlmServiceError,
+    generate_chat_response,
+    is_llm_enabled,
+    stream_chat_response,
+)
 
 def build_support_response(message: str, assessment: dict, resources: list[dict]) -> str:
     summary = _summarize_message(message)
@@ -75,6 +80,52 @@ def generate_support_response(
         "source": "ai_service",
         "fallback_used": False,
     }
+
+
+def stream_support_response(
+    *,
+    message: str,
+    assessment: dict,
+    resources: list[dict],
+    user=None,
+):
+    fallback_text = build_support_response(message=message, assessment=assessment, resources=resources)
+
+    if assessment["risk_level"] == "high" or not is_llm_enabled():
+        yield {
+            "content": fallback_text,
+            "source": "fallback" if assessment["risk_level"] == "high" else "rule_engine",
+            "fallback_used": assessment["risk_level"] == "high",
+        }
+        return
+
+    try:
+        content_parts = []
+        emitted_chunk = False
+        for chunk in stream_chat_response(
+            system_prompt=_build_system_prompt(assessment=assessment, resources=resources, user=user),
+            user_message=message,
+        ):
+            if chunk:
+                emitted_chunk = True
+                content_parts.append(chunk)
+                yield {
+                    "content": chunk,
+                    "source": "ai_service",
+                    "fallback_used": False,
+                }
+
+        full_content = "".join(content_parts).strip()
+        if not full_content:
+            raise LlmServiceError("The provider returned an empty streamed message.")
+    except LlmServiceError:
+        if emitted_chunk:
+            return
+        yield {
+            "content": fallback_text,
+            "source": "fallback",
+            "fallback_used": True,
+        }
 
 
 def _build_system_prompt(*, assessment: dict, resources: list[dict], user=None) -> str:

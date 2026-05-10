@@ -49,6 +49,17 @@ def generate_chat_response(*, system_prompt: str, user_message: str) -> str:
     raise LlmServiceError("No supported LLM provider is configured.")
 
 
+def stream_chat_response(*, system_prompt: str, user_message: str):
+    provider = os.environ.get("LLM_PROVIDER", "").strip().lower()
+    if provider == "openrouter":
+        yield from _stream_openrouter(system_prompt=system_prompt, user_message=user_message)
+        return
+    if provider == "ollama":
+        yield from _stream_ollama(system_prompt=system_prompt, user_message=user_message)
+        return
+    raise LlmServiceError("No supported LLM provider is configured.")
+
+
 def _call_openrouter(*, system_prompt: str, user_message: str) -> str:
     api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
     if not api_key:
@@ -72,6 +83,64 @@ def _call_openrouter(*, system_prompt: str, user_message: str) -> str:
         method="POST",
     )
     return _read_openai_style_response(req)
+
+
+def _stream_openrouter(*, system_prompt: str, user_message: str):
+    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if not api_key:
+        raise LlmServiceError("OPENROUTER_API_KEY is not configured.")
+
+    payload = {
+        "model": os.environ.get("LLM_MODEL", "openrouter/auto"),
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "temperature": 0.4,
+        "stream": True,
+    }
+    req = request.Request(
+        "https://openrouter.ai/api/v1/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with request.urlopen(req, timeout=45) as response:
+            for raw_line in response:
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if not line or not line.startswith("data:"):
+                    continue
+
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+
+                try:
+                    payload = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+
+                choices = payload.get("choices") or []
+                delta = choices[0].get("delta", {}) if choices else {}
+                content = delta.get("content", "")
+
+                if isinstance(content, list):
+                    content = "".join(
+                        part.get("text", "") for part in content if isinstance(part, dict)
+                    )
+
+                if content:
+                    yield str(content)
+    except error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="replace")
+        raise LlmServiceError(f"LLM HTTP error {exc.code}: {error_body}") from exc
+    except error.URLError as exc:
+        raise LlmServiceError(f"LLM request failed: {exc}") from exc
 
 
 def _call_ollama(*, system_prompt: str, user_message: str) -> str:
@@ -100,6 +169,42 @@ def _call_ollama(*, system_prompt: str, user_message: str) -> str:
     if not content:
         raise LlmServiceError("Ollama returned an empty response.")
     return content
+
+
+def _stream_ollama(*, system_prompt: str, user_message: str):
+    base_url = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+    payload = {
+        "model": os.environ.get("LLM_MODEL", "llama3.1:8b"),
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "stream": True,
+    }
+    req = request.Request(
+        f"{base_url}/api/chat",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with request.urlopen(req, timeout=45) as response:
+            for raw_line in response:
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if not line:
+                    continue
+
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                content = payload.get("message", {}).get("content", "")
+                if content:
+                    yield str(content)
+    except error.URLError as exc:
+        raise LlmServiceError(f"Ollama request failed: {exc}") from exc
 
 
 def _read_openai_style_response(req: request.Request) -> str:
