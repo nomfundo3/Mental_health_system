@@ -8,9 +8,9 @@ const loginStatus = document.getElementById("login-status");
 const chatStatus = document.getElementById("chat-status");
 const moodStatus = document.getElementById("mood-status");
 const resourcesStatus = document.getElementById("resources-status");
+const settingsStatus = document.getElementById("settings-status");
 
 const resourcesList = document.getElementById("resources-list");
-
 const sessionList = document.getElementById("session-list");
 const dashboardStatus = document.getElementById("dashboard-status");
 const chatTranscript = document.getElementById("chat-transcript");
@@ -19,15 +19,15 @@ const flaggedList = document.getElementById("flagged-list");
 
 const activeUser = document.getElementById("active-user");
 const activeUserMeta = document.getElementById("active-user-meta");
-const activeSession = document.getElementById("active-session");
 const activeSessionMeta = document.getElementById("active-session-meta");
-const activeSafety = document.getElementById("active-safety");
 const activeSafetyMeta = document.getElementById("active-safety-meta");
 const chatTitle = document.getElementById("chat-title");
+const topbarUserLabel = document.getElementById("topbar-user-label");
 
 const factSessionCount = document.getElementById("fact-session-count");
 const factResourceCount = document.getElementById("fact-resource-count");
 const factFlaggedCount = document.getElementById("fact-flagged-count");
+const flaggedStatCard = document.getElementById("flagged-stat-card");
 
 const stepRegister = document.getElementById("step-register");
 const stepLogin = document.getElementById("step-login");
@@ -38,21 +38,55 @@ const loadSessionsButton = document.getElementById("load-sessions");
 const loadResourcesButton = document.getElementById("load-resources");
 const loadFlaggedButton = document.getElementById("load-flagged");
 const showMoodPanelButton = document.getElementById("show-mood-panel");
+const openSettingsButton = document.getElementById("open-settings");
+const openHelpButton = document.getElementById("open-help");
+const sidebarHomeButton = document.getElementById("sidebar-home");
 
 const openLoginButton = document.getElementById("open-login");
 const openLoginTopButton = document.getElementById("open-login-top");
 const openRegisterButton = document.getElementById("open-register");
+const openAdminPanelButton = document.getElementById("open-admin-panel");
+const openAccountButton = document.getElementById("open-account");
 const closeAuthModalButton = document.getElementById("close-auth-modal");
 const authModal = document.getElementById("auth-modal");
 const loginPanel = document.getElementById("login-panel");
 const registerPanel = document.getElementById("register-panel");
 const accountSummary = document.getElementById("account-summary");
 const logoutButton = document.getElementById("logout-button");
-const sidebarPromo = document.getElementById("sidebar-promo");
+const logoutTopButton = document.getElementById("logout-top");
+
+const guestActions = document.getElementById("guest-actions");
+const userActions = document.getElementById("user-actions");
+const promoCard = document.getElementById("promo-card");
+const promoTitle = document.getElementById("promo-title");
+const promoCopy = document.getElementById("promo-copy");
+const promoGuestActions = document.getElementById("promo-guest-actions");
+const flaggedReviewCard = document.getElementById("flagged-review-card");
 
 const utilityDrawer = document.getElementById("utility-drawer");
 const closeDrawerButton = document.getElementById("close-drawer");
 const moodPanel = document.getElementById("mood-panel");
+const resourcesPanel = document.getElementById("resources-panel");
+const settingsPanel = document.getElementById("settings-panel");
+const helpPanel = document.getElementById("help-panel");
+const textSizeSelect = document.getElementById("text-size-select");
+const reduceMotionToggle = document.getElementById("reduce-motion-toggle");
+const resetPreferencesButton = document.getElementById("reset-preferences");
+const helpStartChatButton = document.getElementById("help-start-chat");
+const helpOpenResourcesButton = document.getElementById("help-open-resources");
+const messageInput = document.getElementById("message");
+
+const sidebarButtons = [
+    newChatButton,
+    loadSessionsButton,
+    showMoodPanelButton,
+    loadResourcesButton,
+    loadFlaggedButton,
+    openSettingsButton,
+    openHelpButton,
+].filter(Boolean);
+
+const preferenceStorageKey = "mental-health-sidebar-preferences";
 
 let currentUser = null;
 let currentSessionId = null;
@@ -69,33 +103,37 @@ function setChatStatus(message = "", isError = false) {
     chatStatus.classList.toggle("error-text", Boolean(message && isError));
 }
 
+function isSupportUser(user = currentUser) {
+    return Boolean(user && ["admin", "support"].includes(user.role));
+}
+
 function getCookie(name) {
-    let cookieValue = null;
-
-    if (document.cookie && document.cookie !== "") {
-        const cookies = document.cookie.split(";");
-
-        for (let i = 0; i < cookies.length; i += 1) {
-            const cookie = cookies[i].trim();
-
-            if (cookie.substring(0, name.length + 1) === `${name}=`) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-
-    return cookieValue;
+    const cookieString = document.cookie || "";
+    const cookies = cookieString.split(";").map((cookie) => cookie.trim());
+    const match = cookies.find((cookie) => cookie.startsWith(`${name}=`));
+    return match ? decodeURIComponent(match.split("=").slice(1).join("=")) : "";
 }
 
 function getCsrfToken() {
-    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
-
-    if (token && token !== "NOTPROVIDED") {
-        return token;
+    const cookieToken = getCookie("csrftoken");
+    if (cookieToken) {
+        return cookieToken;
     }
 
-    return getCookie("csrftoken");
+    const metaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
+    return metaToken === "NOTPROVIDED" ? "" : metaToken;
+}
+
+function getFlaggedDefaultMessage(user = currentUser) {
+    if (!user) {
+        return "Support staff can load flagged conversations here after login.";
+    }
+
+    if (isSupportUser(user)) {
+        return "Flagged conversations will appear here after you load them.";
+    }
+
+    return "Flagged review is only available to support staff.";
 }
 
 function setStepState(step, state) {
@@ -127,31 +165,109 @@ function updateOrderedFlow() {
     setStepState(stepChat, currentSessionId ? "done" : "active");
 }
 
+function setActiveSidebarButton(activeButton) {
+    sidebarButtons.forEach((button) => {
+        button.classList.toggle("active-nav", button === activeButton);
+    });
+}
+
+function shouldReduceMotion() {
+    return Boolean(reduceMotionToggle?.checked);
+}
+
 function openAuthPanel(mode) {
+    if (!authModal || !loginPanel || !registerPanel || !accountSummary) {
+        return;
+    }
+
+    const resolvedMode = currentUser && mode === "account" ? "account" : mode;
     authModal.classList.remove("hidden");
-    loginPanel.classList.toggle("hidden", mode !== "login");
-    registerPanel.classList.toggle("hidden", mode !== "register");
+    loginPanel.classList.toggle("hidden", resolvedMode !== "login");
+    registerPanel.classList.toggle("hidden", resolvedMode !== "register");
+    accountSummary.classList.toggle("hidden", resolvedMode !== "account");
 }
 
 function closeAuthPanel() {
-    authModal.classList.add("hidden");
+    authModal?.classList.add("hidden");
 }
 
 function openDrawer() {
-    utilityDrawer.classList.remove("hidden");
+    utilityDrawer?.classList.remove("hidden");
 }
 
 function closeDrawer() {
-    utilityDrawer.classList.add("hidden");
+    utilityDrawer?.classList.add("hidden");
+}
+
+function scrollSectionIntoView(section) {
+    if (!section) {
+        return;
+    }
+
+    requestAnimationFrame(() => {
+        section.scrollIntoView({
+            behavior: shouldReduceMotion() ? "auto" : "smooth",
+            block: "start",
+        });
+    });
+}
+
+function openDrawerSection(section, activeButton) {
+    openDrawer();
+    if (activeButton) {
+        setActiveSidebarButton(activeButton);
+    }
+    scrollSectionIntoView(section);
 }
 
 function toggleChatEmpty(isEmpty) {
-    heroEmpty.classList.toggle("hidden", !isEmpty);
-    chatTranscript.classList.toggle("hidden", isEmpty);
+    heroEmpty?.classList.toggle("hidden", !isEmpty);
+    chatTranscript?.classList.toggle("hidden", isEmpty);
+}
+
+function updateAuthChrome(user) {
+    const isAuthenticated = Boolean(user);
+    const accountName = user ? user.display_name || user.username : "Guest";
+
+    guestActions?.classList.toggle("hidden", isAuthenticated);
+    userActions?.classList.toggle("hidden", !isAuthenticated);
+    promoCard?.classList.toggle("hidden", isAuthenticated);
+    promoGuestActions?.classList.toggle("hidden", isAuthenticated);
+    openAdminPanelButton?.classList.toggle("hidden", !isSupportUser(user));
+
+    if (topbarUserLabel) {
+        topbarUserLabel.textContent = accountName;
+    }
+    if (promoTitle) {
+        promoTitle.textContent = isAuthenticated ? `Welcome, ${accountName}` : "Get support tailored to you";
+    }
+    if (promoCopy) {
+        promoCopy.textContent = isAuthenticated
+            ? "Your saved chats, mood check-ins, and support resources are ready when you are."
+            : "Log in to save chats, mood check-ins, and support resources.";
+    }
+}
+
+function updateSupportChrome(user) {
+    const canReviewFlagged = isSupportUser(user);
+
+    loadFlaggedButton?.classList.toggle("hidden", !canReviewFlagged);
+    flaggedReviewCard?.classList.toggle("hidden", !canReviewFlagged);
+    flaggedStatCard?.classList.toggle("hidden", !canReviewFlagged);
+
+    if (!canReviewFlagged && factFlaggedCount) {
+        factFlaggedCount.textContent = "0";
+    }
+
+    if (flaggedList) {
+        flaggedList.className = "flagged-list empty-state";
+        flaggedList.textContent = getFlaggedDefaultMessage(user);
+    }
 }
 
 function setActiveUser(user) {
     currentUser = user;
+
     const usernameInput = document.getElementById("username");
     if (usernameInput) {
         usernameInput.value = user ? user.username : "";
@@ -165,30 +281,21 @@ function setActiveUser(user) {
             ? `${user.username} is signed in and ready to continue.`
             : "Register or log in to begin.";
     }
-
     if (chatTitle) {
         chatTitle.textContent = user
             ? `Welcome back, ${user.display_name || user.username}`
             : "What's on your mind today?";
     }
 
-    if (accountSummary) {
-        accountSummary.classList.toggle("hidden", !user);
-    }
-    if (sidebarPromo) {
-        sidebarPromo.classList.toggle("hidden", Boolean(user));
-    }
+    updateAuthChrome(user);
+    updateSupportChrome(user);
     updateOrderedFlow();
 }
 
 function setSessionSummary(session) {
     const messages = Array.isArray(session?.messages) ? session.messages : [];
-
     currentSessionId = session ? session.id : null;
 
-    if (activeSession) {
-        activeSession.textContent = session ? `#${session.id}` : "No session";
-    }
     if (activeSessionMeta) {
         activeSessionMeta.textContent = session
             ? `${session.status} conversation with ${messages.length} saved messages.`
@@ -202,12 +309,6 @@ function setSafetySummary(assessment) {
     const categories = Array.isArray(assessment?.resource_categories)
         ? assessment.resource_categories
         : [];
-
-    if (activeSafety) {
-        activeSafety.textContent = assessment
-            ? `${assessment.risk_level.toUpperCase()} risk`
-            : "Monitoring";
-    }
 
     if (activeSafetyMeta) {
         activeSafetyMeta.textContent = assessment
@@ -281,19 +382,23 @@ function renderSessions(sessions = []) {
     const safeSessions = Array.isArray(sessions) ? sessions : [];
     currentSessions = safeSessions;
 
-    factSessionCount.textContent = safeSessions.length;
+    if (factSessionCount) {
+        factSessionCount.textContent = safeSessions.length;
+    }
 
     if (!safeSessions.length) {
         sessionList.className = "session-list empty-state";
-        sessionList.textContent = "No sessions saved for this user yet.";
+        sessionList.textContent = currentUser
+            ? "No saved chats yet. Start a conversation and it will appear here."
+            : "Log in to browse saved chats.";
         return;
     }
 
     sessionList.className = "session-list";
     sessionList.innerHTML = safeSessions.map((session) => `
-        <button type="button" data-session-id="${session.id}" class="session-item ${session.id === currentSessionId ? "active" : ""}">
-            <strong>${session.title}</strong>
-            <span>${session.last_risk_level} risk</span>
+        <button type="button" data-session-id="${session.id}" class="session-item ${Number(session.id) === currentSessionId ? "active" : ""}">
+            <strong>${escapeHtml(session.title || "Support chat")}</strong>
+            <span>${escapeHtml(session.last_risk_level || "low")} risk</span>
         </button>
     `).join("");
 }
@@ -301,20 +406,20 @@ function renderSessions(sessions = []) {
 function renderResources(resources = []) {
     const safeResources = Array.isArray(resources) ? resources : [];
 
-    factResourceCount.textContent = safeResources.length;
+    if (factResourceCount) {
+        factResourceCount.textContent = safeResources.length;
+    }
     resourcesList.innerHTML = "";
 
     safeResources.forEach((resource) => {
         const card = document.createElement("article");
         card.className = `resource-item ${resource.is_emergency ? "emergency" : ""}`;
-
         card.innerHTML = `
-            <p class="resource-tag">${resource.category}</p>
-            <h3>${resource.title}</h3>
-            <p>${resource.description}</p>
+            <p class="resource-tag">${escapeHtml(resource.category || "general")}</p>
+            <h3>${escapeHtml(resource.title || "Support resource")}</h3>
+            <p>${escapeHtml(resource.description || "")}</p>
             ${resource.url ? `<a href="${resource.url}" target="_blank" rel="noreferrer">Open resource</a>` : ""}
         `;
-
         resourcesList.appendChild(card);
     });
 }
@@ -322,7 +427,9 @@ function renderResources(resources = []) {
 function renderFlagged(flagged = []) {
     const safeFlagged = Array.isArray(flagged) ? flagged : [];
 
-    factFlaggedCount.textContent = safeFlagged.length;
+    if (factFlaggedCount) {
+        factFlaggedCount.textContent = safeFlagged.length;
+    }
 
     if (!safeFlagged.length) {
         flaggedList.className = "flagged-list empty-state";
@@ -334,15 +441,14 @@ function renderFlagged(flagged = []) {
     flaggedList.innerHTML = safeFlagged.map((item) => `
         <article class="flagged-item">
             <h3>Session #${item.session_id}</h3>
-            <p>${item.content}</p>
-            <span>${item.risk_level} risk | ${item.sentiment} sentiment</span>
+            <p>${escapeHtml(item.content || "")}</p>
+            <span>${escapeHtml(item.risk_level || "low")} risk | ${escapeHtml(item.sentiment || "neutral")} sentiment</span>
         </article>
     `).join("");
 }
 
 async function postJson(url, payload = {}) {
     const csrfToken = getCsrfToken();
-
     const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -354,7 +460,6 @@ async function postJson(url, payload = {}) {
     });
 
     const data = await response.json().catch(() => ({}));
-
     if (!response.ok) {
         const firstError = Object.values(data)[0];
         const message = Array.isArray(firstError) ? firstError[0] : firstError;
@@ -375,7 +480,6 @@ async function loadCurrentUser() {
         }
 
         const payload = await response.json();
-
         if (payload.authenticated && payload.user) {
             setActiveUser(payload.user);
             await loadSessions();
@@ -387,7 +491,7 @@ async function loadCurrentUser() {
 
 async function loadSessions() {
     if (!currentUser) {
-        dashboardStatus.textContent = "Log in to fetch chat history.";
+        dashboardStatus.textContent = "Log in to view saved chats.";
         renderSessions([]);
         return;
     }
@@ -404,8 +508,7 @@ async function loadSessions() {
         }
 
         const sessions = await response.json();
-
-        dashboardStatus.textContent = sessions.length ? "" : "No saved sessions for this user yet.";
+        dashboardStatus.textContent = sessions.length ? "" : "No saved chats yet.";
         renderSessions(sessions);
     } catch (error) {
         console.error("Load sessions error:", error);
@@ -415,7 +518,6 @@ async function loadSessions() {
 
 async function loadResources() {
     resourcesStatus.textContent = "Loading resources...";
-    openDrawer();
 
     try {
         const response = await fetch("/api/recommendations/", {
@@ -427,7 +529,6 @@ async function loadResources() {
         }
 
         const resources = await response.json();
-
         resourcesStatus.textContent = resources.length ? "" : "No resources have been added yet.";
         renderResources(resources);
     } catch (error) {
@@ -437,9 +538,14 @@ async function loadResources() {
 }
 
 async function loadFlaggedMessages() {
+    if (!isSupportUser()) {
+        flaggedList.className = "flagged-list empty-state";
+        flaggedList.textContent = getFlaggedDefaultMessage();
+        return;
+    }
+
     flaggedList.className = "flagged-list empty-state";
     flaggedList.textContent = "Loading flagged cases...";
-    openDrawer();
 
     try {
         const response = await fetch("/api/admin-panel/flagged-messages/", {
@@ -451,12 +557,106 @@ async function loadFlaggedMessages() {
         }
 
         const payload = await response.json();
-
         renderFlagged(payload.flagged_messages || []);
     } catch (error) {
         console.error("Load flagged error:", error);
         flaggedList.textContent = "Support login is required to view flagged cases.";
     }
+}
+
+function showMoodSection() {
+    openDrawerSection(moodPanel, showMoodPanelButton);
+    if (!currentUser) {
+        moodStatus.textContent = "Log in to save a mood check-in.";
+    }
+}
+
+async function showSessionHistory() {
+    setActiveSidebarButton(loadSessionsButton);
+    await loadSessions();
+}
+
+async function showResourcesSection() {
+    openDrawerSection(resourcesPanel, loadResourcesButton);
+    await loadResources();
+}
+
+async function showFlaggedSection() {
+    openDrawerSection(flaggedReviewCard, loadFlaggedButton);
+    await loadFlaggedMessages();
+}
+
+function showSettingsSection() {
+    openDrawerSection(settingsPanel, openSettingsButton);
+    if (settingsStatus) {
+        settingsStatus.textContent = "";
+    }
+}
+
+function showHelpSection() {
+    openDrawerSection(helpPanel, openHelpButton);
+}
+
+function getDefaultPreferences() {
+    return {
+        textSize: "comfortable",
+        reduceMotion: false,
+    };
+}
+
+function loadStoredPreferences() {
+    try {
+        const raw = localStorage.getItem(preferenceStorageKey);
+        return raw ? { ...getDefaultPreferences(), ...JSON.parse(raw) } : getDefaultPreferences();
+    } catch (error) {
+        return getDefaultPreferences();
+    }
+}
+
+function saveStoredPreferences(preferences) {
+    localStorage.setItem(preferenceStorageKey, JSON.stringify(preferences));
+}
+
+function applyPreferences(preferences, statusMessage = "") {
+    const fontSizeMap = {
+        compact: "15px",
+        comfortable: "16px",
+        large: "18px",
+    };
+
+    document.body.dataset.textSize = preferences.textSize;
+    document.documentElement.style.fontSize = fontSizeMap[preferences.textSize] || fontSizeMap.comfortable;
+    document.body.classList.toggle("reduce-motion", preferences.reduceMotion);
+
+    if (textSizeSelect) {
+        textSizeSelect.value = preferences.textSize;
+    }
+    if (reduceMotionToggle) {
+        reduceMotionToggle.checked = preferences.reduceMotion;
+    }
+    if (settingsStatus) {
+        settingsStatus.textContent = statusMessage;
+    }
+}
+
+function savePreferences(statusMessage = "Preferences saved.") {
+    const preferences = {
+        textSize: textSizeSelect?.value || "comfortable",
+        reduceMotion: Boolean(reduceMotionToggle?.checked),
+    };
+    saveStoredPreferences(preferences);
+    applyPreferences(preferences, statusMessage);
+}
+
+function resetWorkspace(statusMessage = "") {
+    setSessionSummary(null);
+    setSafetySummary(null);
+    renderTranscript([]);
+    const messageInput = document.getElementById("message");
+    if (messageInput) {
+        messageInput.value = "";
+    }
+    setChatStatus(statusMessage);
 }
 
 registerForm.addEventListener("submit", async (event) => {
@@ -483,13 +683,10 @@ registerForm.addEventListener("submit", async (event) => {
 
     try {
         const data = await postJson("/api/users/register/", payload);
-
         registerStatus.textContent = `Account created for ${data.user.username}. You can log in now.`;
         registerForm.reset();
-
         setStepState(stepRegister, "done");
         setStepState(stepLogin, "active");
-
         openAuthPanel("login");
     } catch (error) {
         console.error("Register error:", error);
@@ -508,11 +705,9 @@ loginForm.addEventListener("submit", async (event) => {
 
     try {
         const data = await postJson("/api/users/login/", payload);
-
         loginStatus.textContent = "Login successful.";
         setActiveUser(data.user);
         closeAuthPanel();
-
         await loadSessions();
     } catch (error) {
         console.error("Login error:", error);
@@ -522,16 +717,7 @@ loginForm.addEventListener("submit", async (event) => {
 
 chatForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const messageInput = document.getElementById("message");
     const messageText = messageInput.value.trim();
-
-    const payload = {
-        message: messageText,
-    };
-
-    if (currentSessionId) {
-        payload.session_id = currentSessionId;
-    }
 
     if (!currentUser) {
         setChatStatus("Please log in before chatting.", true);
@@ -539,9 +725,14 @@ chatForm.addEventListener("submit", async (event) => {
         return;
     }
 
-    if (!payload.message) {
+    if (!messageText) {
         setChatStatus("Type a message first.", true);
         return;
+    }
+
+    const payload = { message: messageText };
+    if (currentSessionId) {
+        payload.session_id = currentSessionId;
     }
 
     const baseTranscriptMessages = [...currentTranscriptMessages];
@@ -567,6 +758,7 @@ chatForm.addEventListener("submit", async (event) => {
 
         renderTranscript(optimisticMessages);
         messageInput.value = "";
+
         const response = await fetch("/api/chat/message/", {
             method: "POST",
             headers: {
@@ -580,14 +772,12 @@ chatForm.addEventListener("submit", async (event) => {
         if (!response.ok) {
             throw new Error(`Request failed with status ${response.status}`);
         }
-
         if (!response.body) {
             throw new Error("Streaming is not available because the response body is missing.");
         }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-
         let buffer = "";
         let finalData = null;
         let streamedAssistantContent = "";
@@ -600,11 +790,10 @@ chatForm.addEventListener("submit", async (event) => {
             }
 
             const lines = buffer.split("\n");
-            buffer = lines.pop();
+            buffer = lines.pop() || "";
 
             for (const line of lines) {
                 const cleanLine = line.trim();
-
                 if (!cleanLine) {
                     continue;
                 }
@@ -636,7 +825,6 @@ chatForm.addEventListener("submit", async (event) => {
         if (buffer.trim()) {
             try {
                 const chunk = JSON.parse(buffer.trim());
-
                 if (chunk.type === "complete") {
                     finalData = chunk;
                 }
@@ -649,14 +837,15 @@ chatForm.addEventListener("submit", async (event) => {
             throw new Error("Response received but final session data is missing.");
         }
 
-        const messages = Array.isArray(finalData.session?.messages)
-            ? finalData.session.messages
-            : [];
-
         setSessionSummary(finalData.session);
         setSafetySummary(finalData.assessment);
-        renderTranscript(messages);
+        renderTranscript(Array.isArray(finalData.session.messages) ? finalData.session.messages : []);
         renderResources(finalData.resources || []);
+        if (finalData.response_source && finalData.response_source !== "ai_service") {
+            setChatStatus("Fallback support guidance was used for this reply.", false);
+        } else {
+            setChatStatus("");
+        }
 
         await loadSessions();
     } catch (error) {
@@ -667,9 +856,24 @@ chatForm.addEventListener("submit", async (event) => {
     }
 });
 
+messageInput?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey) {
+        return;
+    }
+
+    event.preventDefault();
+    chatForm?.requestSubmit();
+});
+
 moodForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     moodStatus.textContent = "Saving check-in...";
+
+    if (!currentUser) {
+        moodStatus.textContent = "Please log in before saving a mood check-in.";
+        openAuthPanel("login");
+        return;
+    }
 
     const payload = {
         mood: document.getElementById("mood").value,
@@ -681,15 +885,8 @@ moodForm.addEventListener("submit", async (event) => {
         payload.session_id = currentSessionId;
     }
 
-    if (!currentUser) {
-        moodStatus.textContent = "Please log in before saving a mood check-in.";
-        openAuthPanel("login");
-        return;
-    }
-
     try {
         await postJson("/api/chat/mood-checkins/", payload);
-
         moodStatus.textContent = "Mood check-in saved.";
         moodForm.reset();
         document.getElementById("stress-level").value = "3";
@@ -701,14 +898,12 @@ moodForm.addEventListener("submit", async (event) => {
 
 sessionList.addEventListener("click", async (event) => {
     const button = event.target.closest(".session-item");
-
-    if (!button) {
+    if (!button || !currentUser) {
         return;
     }
 
     const sessionId = Number(button.dataset.sessionId);
-
-    if (!sessionId || !currentUser) {
+    if (!sessionId) {
         return;
     }
 
@@ -722,97 +917,91 @@ sessionList.addEventListener("click", async (event) => {
             throw new Error(`Request failed with status ${response.status}`);
         }
 
-        const match = await response.json();
-
-        if (!match) {
-            dashboardStatus.textContent = "That saved chat is no longer available.";
-            return;
-        }
-
-        const matchedMessages = Array.isArray(match?.messages) ? match.messages : [];
-
+        const session = await response.json();
         dashboardStatus.textContent = "";
-
-        setSessionSummary(match);
-        renderTranscript(matchedMessages);
-        renderSessions(currentSessions.map((session) => (
-            Number(session.id) === sessionId ? match : session
-        )));
+        setSessionSummary(session);
+        renderTranscript(Array.isArray(session.messages) ? session.messages : []);
+        renderSessions(currentSessions.map((item) => (Number(item.id) === sessionId ? session : item)));
+        setActiveSidebarButton(loadSessionsButton);
     } catch (error) {
         console.error("Open session error:", error);
         dashboardStatus.textContent = error.message || "Could not open that saved chat yet.";
     }
 });
 
-newChatButton.addEventListener("click", () => {
-    setSessionSummary(null);
-    setSafetySummary(null);
-    renderTranscript([]);
+function handleNewChat(statusMessage = "New chat ready.") {
+    closeDrawer();
+    setActiveSidebarButton(newChatButton);
+    resetWorkspace(statusMessage);
+}
 
-    document.getElementById("message").value = "";
-    setChatStatus("");
-});
+newChatButton.addEventListener("click", () => handleNewChat("New chat ready."));
+sidebarHomeButton?.addEventListener("click", () => handleNewChat(""));
 
-loadSessionsButton.addEventListener("click", loadSessions);
-loadResourcesButton.addEventListener("click", loadResources);
-loadFlaggedButton.addEventListener("click", loadFlaggedMessages);
-
-showMoodPanelButton.addEventListener("click", () => {
-    openDrawer();
-    moodPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-});
+loadSessionsButton.addEventListener("click", showSessionHistory);
+loadResourcesButton.addEventListener("click", showResourcesSection);
+loadFlaggedButton.addEventListener("click", showFlaggedSection);
+showMoodPanelButton.addEventListener("click", showMoodSection);
+openSettingsButton.addEventListener("click", showSettingsSection);
+openHelpButton.addEventListener("click", showHelpSection);
 
 openLoginButton.addEventListener("click", () => openAuthPanel("login"));
 openLoginTopButton.addEventListener("click", () => openAuthPanel("login"));
 openRegisterButton.addEventListener("click", () => openAuthPanel("register"));
+openAdminPanelButton?.addEventListener("click", () => {
+    window.location.href = "/admin-support/";
+});
+openAccountButton?.addEventListener("click", () => openAuthPanel("account"));
 closeAuthModalButton.addEventListener("click", closeAuthPanel);
 closeDrawerButton.addEventListener("click", closeDrawer);
 
-logoutButton.addEventListener("click", async () => {
+textSizeSelect?.addEventListener("change", () => savePreferences());
+reduceMotionToggle?.addEventListener("change", () => savePreferences());
+resetPreferencesButton?.addEventListener("click", () => {
+    const defaults = getDefaultPreferences();
+    saveStoredPreferences(defaults);
+    applyPreferences(defaults, "Preferences reset.");
+});
+helpStartChatButton?.addEventListener("click", () => handleNewChat("New chat ready."));
+helpOpenResourcesButton?.addEventListener("click", showResourcesSection);
+
+async function handleLogout() {
     try {
         await postJson("/api/users/logout/");
     } finally {
         setActiveUser(null);
-        setSessionSummary(null);
-        setSafetySummary(null);
+        currentSessions = [];
         renderSessions([]);
-        renderTranscript([]);
-        setChatStatus("");
-
-        flaggedList.className = "flagged-list empty-state";
-        flaggedList.textContent = "Support staff can load flagged conversations here after login.";
-
+        resetWorkspace("You have logged out.");
+        setActiveSidebarButton(newChatButton);
         closeAuthPanel();
+        closeDrawer();
     }
-});
+}
 
-authModal.addEventListener("click", (event) => {
+logoutButton?.addEventListener("click", handleLogout);
+logoutTopButton?.addEventListener("click", handleLogout);
+
+authModal?.addEventListener("click", (event) => {
     if (event.target === authModal) {
         closeAuthPanel();
     }
 });
 
-utilityDrawer.addEventListener("click", (event) => {
+utilityDrawer?.addEventListener("click", (event) => {
     if (event.target === utilityDrawer) {
         closeDrawer();
     }
 });
 
 async function initializeApp() {
-    try {
-        await fetch("/api/users/me/", {
-            credentials: "same-origin",
-        });
-    } catch (error) {
-        console.error("CSRF initialization failed:", error);
-    }
-
+    applyPreferences(loadStoredPreferences());
     setActiveUser(null);
     setSessionSummary(null);
     setSafetySummary(null);
     setChatStatus("");
     toggleChatEmpty(true);
-
+    setActiveSidebarButton(newChatButton);
     await loadCurrentUser();
 }
 
