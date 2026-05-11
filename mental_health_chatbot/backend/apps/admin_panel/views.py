@@ -1,7 +1,9 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Avg, Count
-from rest_framework.response import Response
+from django.shortcuts import render
+
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.chat.models import ChatMessage
@@ -18,6 +20,7 @@ class FlaggedMessagesView(APIView):
 
     def get(self, request, *args, **kwargs):
         flagged = ChatMessage.objects.filter(flagged=True).order_by("-created_at")[:20]
+
         data = [
             {
                 "id": message.id,
@@ -30,7 +33,53 @@ class FlaggedMessagesView(APIView):
             }
             for message in flagged
         ]
+
         return Response({"flagged_messages": data})
+
+
+class AuditLogsView(APIView):
+    permission_classes = [IsAuthenticated, IsSupportOrAdmin]
+
+    def get(self, request, *args, **kwargs):
+        logs = ChatMessage.objects.select_related(
+            "session",
+            "session__user"
+        ).order_by("-created_at")[:50]
+
+        data = [
+            {
+                "id": message.id,
+                "session_id": message.session_id,
+                "session_title": message.session.title,
+                "username": message.session.user.username if message.session.user else "Anonymous",
+                "role": message.role,
+                "content": message.content,
+                "sentiment": message.sentiment,
+                "risk_level": message.risk_level,
+                "detected_categories": message.detected_categories,
+                "flagged": message.flagged,
+                "source": message.source,
+                "fallback_used": message.fallback_used,
+                "confidence_score": message.confidence_score,
+                "created_at": message.created_at,
+            }
+            for message in logs
+        ]
+
+        return Response({"audit_logs": data})
+
+
+def audit_logs_page(request):
+    logs = ChatMessage.objects.select_related(
+        "session",
+        "session__user"
+    ).order_by("-created_at")[:50]
+
+    return render(
+        request,
+        "admin_panel/audit_logs.html",
+        {"logs": logs}
+    )
 
 
 class AdminDashboardView(APIView):
@@ -41,10 +90,12 @@ class AdminDashboardView(APIView):
             item["status"]: item["total"]
             for item in ChatSession.objects.values("status").annotate(total=Count("id"))
         }
+
         risk_levels = {
             item["risk_level"]: item["total"]
             for item in ChatMessage.objects.filter(role="user").values("risk_level").annotate(total=Count("id"))
         }
+
         moods = {
             item["mood"]: item["total"]
             for item in MoodCheckIn.objects.values("mood").annotate(total=Count("id"))
@@ -62,8 +113,12 @@ class AdminDashboardView(APIView):
                     "escalated_sessions": ChatSession.objects.filter(status="escalated").count(),
                     "active_sessions": ChatSession.objects.filter(status="active").count(),
                     "fallback_messages": ChatMessage.objects.filter(fallback_used=True).count(),
-                    "reviewed_flagged": ChatMessage.objects.filter(flagged=True, reviewed_by_admin=True).count(),
+                    "reviewed_flagged": ChatMessage.objects.filter(
+                        flagged=True,
+                        reviewed_by_admin=True
+                    ).count(),
                 },
+
                 "breakdowns": {
                     "session_statuses": {
                         "active": session_statuses.get("active", 0),
@@ -71,11 +126,13 @@ class AdminDashboardView(APIView):
                         "escalated": session_statuses.get("escalated", 0),
                         "closed": session_statuses.get("closed", 0),
                     },
+
                     "risk_levels": {
                         "low": risk_levels.get("low", 0),
                         "medium": risk_levels.get("medium", 0),
                         "high": risk_levels.get("high", 0),
                     },
+
                     "moods": {
                         "great": moods.get("great", 0),
                         "okay": moods.get("okay", 0),
@@ -84,15 +141,28 @@ class AdminDashboardView(APIView):
                         "overwhelmed": moods.get("overwhelmed", 0),
                     },
                 },
+
                 "insights": {
-                    "average_stress_level": MoodCheckIn.objects.aggregate(avg=Avg("stress_level"))["avg"] or 0,
-                    "unreviewed_flagged": ChatMessage.objects.filter(flagged=True, reviewed_by_admin=False).count(),
-                    "high_risk_messages": ChatMessage.objects.filter(role="user", risk_level="high").count(),
+                    "average_stress_level": MoodCheckIn.objects.aggregate(
+                        avg=Avg("stress_level")
+                    )["avg"] or 0,
+
+                    "unreviewed_flagged": ChatMessage.objects.filter(
+                        flagged=True,
+                        reviewed_by_admin=False
+                    ).count(),
+
+                    "high_risk_messages": ChatMessage.objects.filter(
+                        role="user",
+                        risk_level="high"
+                    ).count(),
+
                     "support_resources": ResourceRecommendation.objects.filter(
                         is_active=True,
                         audience__in=["all", "support"],
                     ).count(),
                 },
+
                 "latest_flagged": [
                     {
                         "id": message.id,
@@ -108,6 +178,7 @@ class AdminDashboardView(APIView):
                     }
                     for message in ChatMessage.objects.filter(flagged=True).order_by("-created_at")[:5]
                 ],
+
                 "recent_sessions": [
                     {
                         "id": session.id,
@@ -120,6 +191,7 @@ class AdminDashboardView(APIView):
                     }
                     for session in ChatSession.objects.select_related("user").order_by("-updated_at")[:6]
                 ],
+
                 "recent_mood_checkins": [
                     {
                         "id": checkin.id,
@@ -130,7 +202,10 @@ class AdminDashboardView(APIView):
                         "notes": checkin.notes,
                         "created_at": checkin.created_at,
                     }
-                    for checkin in MoodCheckIn.objects.select_related("user", "session").order_by("-created_at")[:6]
+                    for checkin in MoodCheckIn.objects.select_related(
+                        "user",
+                        "session"
+                    ).order_by("-created_at")[:6]
                 ],
             }
         )
