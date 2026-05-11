@@ -25,6 +25,13 @@
                     <button id="load-resources" class="nav-button" type="button">Resources</button>
                     <button id="load-flagged" class="nav-button hidden" type="button">Flagged review</button>
                 </nav>
+
+                <div class="sidebar-history">
+                    <div id="dashboard-status" class="status-text"></div>
+                    <div id="session-list" class="session-list empty-state">
+                        Log in to browse saved chats.
+                    </div>
+                </div>
             </div>
 
             <div class="sidebar-bottom">
@@ -71,16 +78,6 @@
             </section>
 
             <footer class="composer-wrap">
-                <div id="chat-response" class="response-card hidden">
-                    <p id="assistant-message"></p>
-                    <div class="meta-grid">
-                        <span><strong>Sentiment:</strong> <span id="sentiment"></span></span>
-                        <span><strong>Risk:</strong> <span id="risk-level"></span></span>
-                        <span><strong>Session:</strong> <span id="active-session">No session</span></span>
-                        <span><strong>Status:</strong> <span id="active-safety">Monitoring</span></span>
-                    </div>
-                </div>
-
                 <form id="chat-form" class="composer">
                     <input id="username" name="username" type="hidden">
                     <div class="composer-inner">
@@ -89,7 +86,7 @@
                         <button type="submit" class="composer-send">Send</button>
                     </div>
                 </form>
-                <div id="chat-status" class="status-text center-status"></div>
+                <div id="chat-status" class="status-text center-status hidden" aria-live="polite"></div>
                 <p class="footer-copy">This assistant offers supportive guidance and referral help. It is not a licensed mental health professional.</p>
             </footer>
         </section>
@@ -146,14 +143,6 @@
                         <li id="step-login" class="step-item">Login</li>
                         <li id="step-chat" class="step-item">Start chatting</li>
                     </ol>
-                </section>
-
-                <section id="session-history-panel" class="info-card">
-                    <p class="section-label">Saved chats</p>
-                    <div id="dashboard-status" class="status-text"></div>
-                    <div id="session-list" class="session-list empty-state">
-                        Log in to browse saved chats.
-                    </div>
                 </section>
 
                 <section class="info-card">

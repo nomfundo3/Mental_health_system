@@ -1,6 +1,7 @@
 from django.contrib.auth import authenticate, login, logout
+from django.middleware.csrf import get_token
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -80,7 +81,10 @@ class UserLoginView(APIView):
 
 
 class CurrentUserView(APIView):
+    permission_classes = [AllowAny]
+
     def get(self, request, *args, **kwargs):
+        get_token(request)
         if not request.user.is_authenticated:
             return Response({"authenticated": False, "user": None}, status=status.HTTP_200_OK)
 
@@ -102,6 +106,8 @@ class CurrentUserView(APIView):
 
 
 class UserLogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, *args, **kwargs):
         logout(request)
         return Response({"message": "Logout successful."}, status=status.HTTP_200_OK)

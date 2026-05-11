@@ -4,6 +4,7 @@ from django.core.exceptions import PermissionDenied
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.shortcuts import render
 from django.urls import include, path
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 
 @ensure_csrf_cookie
