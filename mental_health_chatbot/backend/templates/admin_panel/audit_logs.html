@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audit Logs Timeline</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            background: #f5f6fa;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+        }
+
+        .timeline {
+            border-left: 4px solid #333;
+            padding-left: 25px;
+        }
+
+        .log-card {
+            background: white;
+            margin-bottom: 20px;
+            padding: 18px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            position: relative;
+        }
+
+        .log-card::before {
+            content: "";
+            width: 14px;
+            height: 14px;
+            background: #333;
+            border-radius: 50%;
+            position: absolute;
+            left: -34px;
+            top: 22px;
+        }
+
+        .meta {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .message {
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 5px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .high {
+            background: #ffcccc;
+        }
+
+        .medium {
+            background: #fff3cd;
+        }
+
+        .low {
+            background: #d4edda;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Audit Logs Timeline</h1>
+
+<div class="timeline">
+    {% for log in logs %}
+        <div class="log-card">
+            <div class="meta">
+                <strong>{{ log.created_at }}</strong>
+                |
+                User:
+                {% if log.session.user %}
+                    {{ log.session.user.username }}
+                {% else %}
+                    Anonymous
+                {% endif %}
+                |
+                Role: {{ log.role }}
+                |
+                Source: {{ log.source }}
+            </div>
+
+            <div>
+                Risk:
+                <span class="badge {{ log.risk_level }}">
+                    {{ log.risk_level }}
+                </span>
+
+                Sentiment:
+                <span class="badge">
+                    {{ log.sentiment }}
+                </span>
+            </div>
+
+            <div class="message">
+                {{ log.content }}
+            </div>
+        </div>
+    {% empty %}
+        <p>No audit logs found.</p>
+    {% endfor %}
+</div>
+
+</body>
+</html>
