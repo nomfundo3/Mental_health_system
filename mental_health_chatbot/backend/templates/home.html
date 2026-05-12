@@ -27,9 +27,15 @@
                 </nav>
 
                 <div class="sidebar-history">
-                    <div id="history-status" class="status-text"></div>
-                    <div id="history-session-list" class="session-list empty-state">
-                        Log in to browse saved chats.
+                    <div class="sidebar-history-card">
+                        <div class="sidebar-history-header">
+                            <p class="sidebar-history-label">Recent chats</p>
+                            <span class="sidebar-history-count" id="fact-session-count">0</span>
+                        </div>
+                        <div id="history-status" class="status-text hidden"></div>
+                        <div id="history-session-list" class="session-list history-session-list empty-state">
+                            Log in to browse saved chats.
+                        </div>
                     </div>
                 </div>
             </div>
@@ -171,15 +177,15 @@
                 <section class="info-card">
                     <p class="section-label">Session summary</p>
                     <div class="mini-stats">
-                        <div>
+                        <div class="mini-stat-card">
                             <span>Sessions</span>
-                            <strong id="fact-session-count">0</strong>
+                            <strong id="fact-session-count-drawer">0</strong>
                         </div>
-                        <div>
+                        <div class="mini-stat-card">
                             <span>Resources</span>
                             <strong id="fact-resource-count">0</strong>
                         </div>
-                        <div id="flagged-stat-card" class="hidden">
+                        <div id="flagged-stat-card" class="mini-stat-card hidden">
                             <span>Flagged</span>
                             <strong id="fact-flagged-count">0</strong>
                         </div>

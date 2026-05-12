@@ -28,6 +28,7 @@ const chatTitle = document.getElementById("chat-title");
 const topbarUserLabel = document.getElementById("topbar-user-label");
 
 const factSessionCount = document.getElementById("fact-session-count");
+const factSessionCountDrawer = document.getElementById("fact-session-count-drawer");
 const factResourceCount = document.getElementById("fact-resource-count");
 const factFlaggedCount = document.getElementById("fact-flagged-count");
 const flaggedStatCard = document.getElementById("flagged-stat-card");
@@ -120,6 +121,16 @@ function setChatStatus(message = "", isError = false) {
     chatStatus.textContent = message;
     chatStatus.classList.toggle("hidden", !message);
     chatStatus.classList.toggle("error-text", Boolean(message && isError));
+}
+
+function setHistoryStatus(message = "", isError = false) {
+    if (!historyStatus) {
+        return;
+    }
+
+    historyStatus.textContent = message;
+    historyStatus.classList.toggle("hidden", !message);
+    historyStatus.classList.toggle("error-text", Boolean(message && isError));
 }
 
 function updateGuestChatStatus() {
@@ -445,6 +456,9 @@ function renderHistorySessions(sessions = []) {
     if (factSessionCount) {
         factSessionCount.textContent = safeSessions.length;
     }
+    if (factSessionCountDrawer) {
+        factSessionCountDrawer.textContent = safeSessions.length;
+    }
 
     if (!safeSessions.length) {
         if (!currentUser) {
@@ -484,16 +498,12 @@ function renderSearchSessions(sessions = []) {
 
 async function loadHistorySessions() {
     if (!currentUser) {
-        if (historyStatus) {
-            historyStatus.textContent = "Log in to browse saved chats.";
-        }
+        setHistoryStatus("");
         renderHistorySessions([]);
         return;
     }
 
-    if (historyStatus) {
-        historyStatus.textContent = "Loading chats...";
-    }
+    setHistoryStatus("Loading chats...");
 
     try {
         const response = await fetch("/api/chat/sessions/", {
@@ -505,15 +515,11 @@ async function loadHistorySessions() {
         }
 
         const sessions = await response.json();
-        if (historyStatus) {
-            historyStatus.textContent = sessions.length ? "" : "No saved chats yet.";
-        }
+        setHistoryStatus("");
         renderHistorySessions(sessions);
     } catch (error) {
         console.error("Load history error:", error);
-        if (historyStatus) {
-            historyStatus.textContent = "Could not load chats yet.";
-        }
+        setHistoryStatus("Could not load chats yet.", true);
     }
 }
 
@@ -1070,7 +1076,7 @@ function handleSessionListClick(listElement, shouldCloseSearch = false) {
                     searchStatus.textContent = "Opening saved chat...";
                 }
             } else if (historyStatus) {
-                historyStatus.textContent = "Opening saved chat...";
+                setHistoryStatus("Opening saved chat...");
             }
 
             const response = await fetch(`/api/chat/sessions/${sessionId}/`, {
@@ -1087,7 +1093,7 @@ function handleSessionListClick(listElement, shouldCloseSearch = false) {
                     searchStatus.textContent = "";
                 }
             } else if (historyStatus) {
-                historyStatus.textContent = "";
+                setHistoryStatus("");
             }
             setSessionSummary(session);
             renderTranscript(Array.isArray(session.messages) ? session.messages : []);
@@ -1104,7 +1110,7 @@ function handleSessionListClick(listElement, shouldCloseSearch = false) {
                     searchStatus.textContent = message;
                 }
             } else if (historyStatus) {
-                historyStatus.textContent = message;
+                setHistoryStatus(message, true);
             }
         }
     });
