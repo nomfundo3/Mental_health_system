@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.test.utils import override_settings
 from rest_framework.test import APIClient
 from unittest.mock import patch
 import json
@@ -153,14 +154,71 @@ class ChatWorkflowTests(TestCase):
         payload = response.json()
         self.assertEqual(payload[0]["title"], "How can I calm myself down when I am panicking?")
 
-    def test_chat_requires_authentication(self):
-        self.client.force_authenticate(user=None)
-        response = self.client.post(
+    def test_sessions_endpoint_can_search_by_session_title(self):
+        ChatSession.objects.create(user=self.user, title="Exam stress support")
+        ChatSession.objects.create(user=self.user, title="Sleep routine")
+
+        response = self.client.get("/api/chat/sessions/?search=exam")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload), 1)
+        self.assertEqual(payload[0]["title"], "Exam stress support")
+
+    def test_sessions_endpoint_can_search_by_message_content(self):
+        matching_session = ChatSession.objects.create(user=self.user, title="Support chat")
+        ChatMessage.objects.create(
+            session=matching_session,
+            role="user",
+            content="I keep worrying about my dissertation deadline.",
+            sentiment="negative",
+            risk_level="medium",
+            source="rule_engine",
+        )
+        other_session = ChatSession.objects.create(user=self.user, title="Support chat")
+        ChatMessage.objects.create(
+            session=other_session,
+            role="user",
+            content="I want to plan a better sleep routine.",
+            sentiment="neutral",
+            risk_level="low",
+            source="rule_engine",
+        )
+
+        response = self.client.get("/api/chat/sessions/?search=dissertation")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload), 1)
+        self.assertEqual(payload[0]["id"], matching_session.id)
+
+    def test_guest_chat_is_allowed_without_login(self):
+        guest_client = APIClient()
+        response = guest_client.post(
             "/api/chat/message/",
             {"message": "I feel stressed about exams."},
             format="json",
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+        _, payload = parse_streaming_response(response)
+        session = ChatSession.objects.get(id=payload["session"]["id"])
+        self.assertIsNone(session.user)
+        self.assertIn("guest_chat", payload)
+        self.assertGreaterEqual(payload["guest_chat"]["tokens_remaining"], 0)
+
+    @override_settings(GUEST_CHAT_TOKEN_LIMIT=5)
+    def test_guest_chat_limit_is_enforced(self):
+        guest_client = APIClient()
+        response = guest_client.post(
+            "/api/chat/message/",
+            {"message": "This message will exceed the tiny guest token budget."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 429)
+        payload = response.json()
+        self.assertEqual(payload["detail"], "Guest chat limit reached. Log in to continue chatting.")
+        self.assertEqual(payload["guest_chat"]["token_limit"], 5)
 
     def test_cannot_post_into_another_users_session(self):
         other_user = User.objects.create_user(

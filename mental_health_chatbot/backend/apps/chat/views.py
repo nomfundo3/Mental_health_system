@@ -1,8 +1,11 @@
-from rest_framework import generics
+from django.conf import settings
+from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.http import StreamingHttpResponse
+from django.db.models import Q
 import json
 
 from apps.recommendations.models import ResourceRecommendation
@@ -36,19 +39,74 @@ def _can_access_session(user, session):
     )
 
 
+def _estimate_token_count(text: str) -> int:
+    normalized = " ".join((text or "").split())
+    if not normalized:
+        return 0
+    return max(1, len(normalized) // 4)
+
+
+def _get_guest_session_ids(request) -> set[int]:
+    raw_ids = request.session.get("guest_chat_session_ids", [])
+    return {int(session_id) for session_id in raw_ids if str(session_id).isdigit()}
+
+
+def _store_guest_session_id(request, session_id: int) -> None:
+    session_ids = _get_guest_session_ids(request)
+    session_ids.add(int(session_id))
+    request.session["guest_chat_session_ids"] = sorted(session_ids)
+    request.session.modified = True
+
+
+def _can_access_guest_session(request, session) -> bool:
+    return bool(session and session.user_id is None and session.id in _get_guest_session_ids(request))
+
+
+def _get_guest_chat_usage(request) -> dict:
+    token_limit = getattr(settings, "GUEST_CHAT_TOKEN_LIMIT", 2400)
+    tokens_used = int(request.session.get("guest_chat_tokens_used", 0) or 0)
+    return {
+        "token_limit": token_limit,
+        "tokens_used": tokens_used,
+        "tokens_remaining": max(token_limit - tokens_used, 0),
+    }
+
+
+def _increment_guest_chat_usage(request, *texts: str) -> dict:
+    increment = sum(_estimate_token_count(text) for text in texts)
+    tokens_used = int(request.session.get("guest_chat_tokens_used", 0) or 0) + increment
+    request.session["guest_chat_tokens_used"] = tokens_used
+    request.session.modified = True
+    token_limit = getattr(settings, "GUEST_CHAT_TOKEN_LIMIT", 2400)
+    return {
+        "token_limit": token_limit,
+        "tokens_used": tokens_used,
+        "tokens_remaining": max(token_limit - tokens_used, 0),
+    }
+
+
 class ChatSessionListView(generics.ListAPIView):
     serializer_class = ChatSessionSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         queryset = ChatSession.objects.order_by("-updated_at")
+        search_term = self.request.query_params.get("search", "").strip()
+
         if self.request.user.is_staff or getattr(self.request.user, "role", "") in {"admin", "support"}:
             username = self.request.query_params.get("username", "").strip()
             if username:
-                return queryset.filter(user__username__iexact=username)
-            return queryset
+                queryset = queryset.filter(user__username__iexact=username)
+        else:
+            queryset = queryset.filter(user=self.request.user)
 
-        return queryset.filter(user=self.request.user)
+        if search_term:
+            queryset = queryset.filter(
+                Q(title__icontains=search_term)
+                | Q(messages__content__icontains=search_term)
+            ).distinct()
+
+        return queryset
 
 
 class ChatSessionDetailView(generics.RetrieveAPIView):
@@ -78,7 +136,7 @@ class MoodCheckInCreateView(generics.CreateAPIView):
 
 
 class ChatConversationView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
         serializer = ChatRequestSerializer(data=request.data)
@@ -87,12 +145,32 @@ class ChatConversationView(APIView):
         message = serializer.validated_data["message"]
         session_id = serializer.validated_data.get("session_id")
         user = request.user
+        is_authenticated = bool(user and user.is_authenticated)
 
         session = ChatSession.objects.filter(id=session_id).first() if session_id else None
-        if session is not None and not _can_access_session(user, session):
-            raise PermissionDenied("You cannot continue a chat session that does not belong to you.")
+        if session is not None:
+            if is_authenticated:
+                if not _can_access_session(user, session):
+                    raise PermissionDenied("You cannot continue a chat session that does not belong to you.")
+            elif not _can_access_guest_session(request, session):
+                raise PermissionDenied("You cannot continue a guest chat session that does not belong to you.")
+
+        if not is_authenticated:
+            guest_usage = _get_guest_chat_usage(request)
+            projected_message_cost = _estimate_token_count(message)
+            if guest_usage["tokens_remaining"] < projected_message_cost:
+                return Response(
+                    {
+                        "detail": "Guest chat limit reached. Log in to continue chatting.",
+                        "guest_chat": guest_usage,
+                    },
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+
         if session is None:
-            session = ChatSession.objects.create(user=user)
+            session = ChatSession.objects.create(user=user if is_authenticated else None)
+            if not is_authenticated:
+                _store_guest_session_id(request, session.id)
 
         assessment = assess_message(message)
         user_message = ChatMessage.objects.create(
@@ -131,12 +209,13 @@ class ChatConversationView(APIView):
             content_parts = []
             response_source = "fallback"
             fallback_used = True
+            guest_usage_data = _get_guest_chat_usage(request) if not is_authenticated else None
 
             for chunk_payload in stream_support_response(
                 message=message,
                 assessment=assessment,
                 resources=resources,
-                user=user,
+                user=user if is_authenticated else None,
             ):
                 chunk_content = chunk_payload["content"]
                 response_source = chunk_payload["source"]
@@ -147,6 +226,8 @@ class ChatConversationView(APIView):
                     yield json.dumps({"type": "content", "data": chunk_content}) + "\n"
 
             assistant_content = "".join(content_parts).strip()
+            if not is_authenticated:
+                guest_usage_data = _increment_guest_chat_usage(request, message, assistant_content)
 
             ChatMessage.objects.create(
                 session=session,
@@ -190,6 +271,8 @@ class ChatConversationView(APIView):
                 "resources": resources,
                 "response_source": response_source,
             }
+            if guest_usage_data is not None:
+                final_data["guest_chat"] = guest_usage_data
             yield json.dumps(final_data) + "\n"
         
         response = StreamingHttpResponse(

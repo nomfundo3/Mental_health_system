@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate, login, logout
+from django.conf import settings
 from django.middleware.csrf import get_token
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -85,8 +86,18 @@ class CurrentUserView(APIView):
 
     def get(self, request, *args, **kwargs):
         get_token(request)
+        guest_limit = getattr(settings, "GUEST_CHAT_TOKEN_LIMIT", 2400)
+        guest_tokens_used = int(request.session.get("guest_chat_tokens_used", 0) or 0)
+        guest_chat = {
+            "token_limit": guest_limit,
+            "tokens_used": guest_tokens_used,
+            "tokens_remaining": max(guest_limit - guest_tokens_used, 0),
+        }
         if not request.user.is_authenticated:
-            return Response({"authenticated": False, "user": None}, status=status.HTTP_200_OK)
+            return Response(
+                {"authenticated": False, "user": None, "guest_chat": guest_chat},
+                status=status.HTTP_200_OK,
+            )
 
         user = request.user
         return Response(
@@ -100,6 +111,7 @@ class CurrentUserView(APIView):
                     "role": user.role,
                     "preferred_language": user.preferred_language,
                 },
+                "guest_chat": guest_chat,
             },
             status=status.HTTP_200_OK,
         )

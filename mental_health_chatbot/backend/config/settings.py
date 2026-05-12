@@ -107,3 +107,5 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.AllowAny",
     ],
 }
+
+GUEST_CHAT_TOKEN_LIMIT = int(os.environ.get("GUEST_CHAT_TOKEN_LIMIT", "2400"))

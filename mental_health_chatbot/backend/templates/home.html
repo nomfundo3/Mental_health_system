@@ -27,8 +27,8 @@
                 </nav>
 
                 <div class="sidebar-history">
-                    <div id="dashboard-status" class="status-text"></div>
-                    <div id="session-list" class="session-list empty-state">
+                    <div id="history-status" class="status-text"></div>
+                    <div id="history-session-list" class="session-list empty-state">
                         Log in to browse saved chats.
                     </div>
                 </div>
@@ -128,6 +128,29 @@
                 <strong id="active-user">Guest</strong>
                 <p id="active-user-meta">Register or log in to begin.</p>
                 <button id="logout-button" class="auth-secondary" type="button">Logout</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="search-modal" class="modal hidden">
+        <div class="modal-card search-modal-card">
+            <button id="close-search-modal" class="close-button" type="button">x</button>
+            <div class="search-modal-header">
+                <p class="section-label">Search chats</p>
+                <h2 class="search-modal-title">Find a saved conversation</h2>
+                <p class="muted-copy">Search by chat title or anything said inside the conversation.</p>
+            </div>
+            <label class="session-search-label" for="session-search">Search saved chats</label>
+            <input
+                id="session-search"
+                class="session-search-input"
+                type="search"
+                placeholder="Try: exam stress, panic, deadline"
+                autocomplete="off"
+            >
+            <div id="search-status" class="status-text"></div>
+            <div id="search-session-list" class="session-list modal-session-list empty-state">
+                Start typing to search your saved chats.
             </div>
         </div>
     </section>

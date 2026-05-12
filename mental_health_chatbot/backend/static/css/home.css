@@ -119,6 +119,8 @@ select {
     flex-direction: column;
     min-height: 0;
     margin-top: 10px;
+    gap: 8px;
+    justify-content: flex-end;
 }
 
 .sidebar-bottom {
@@ -151,6 +153,25 @@ select {
     min-height: 0;
     overflow-y: auto;
     padding-right: 4px;
+}
+
+.session-search-label {
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.session-search-input {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px 12px;
+    background: rgba(255, 250, 243, 0.96);
+    color: var(--ink);
+}
+
+.session-search-input:focus {
+    outline: 2px solid rgba(31, 122, 107, 0.18);
+    border-color: rgba(31, 122, 107, 0.35);
 }
 
 .promo-card,
@@ -469,6 +490,31 @@ select {
     border-radius: 24px;
     padding: 20px;
     position: relative;
+}
+
+.search-modal-card {
+    width: min(720px, 100%);
+    display: grid;
+    gap: 12px;
+    padding: 24px;
+    background:
+        radial-gradient(circle at top right, rgba(31, 122, 107, 0.1), transparent 28%),
+        rgba(255, 250, 243, 0.98);
+}
+
+.search-modal-header {
+    padding-right: 40px;
+}
+
+.search-modal-title {
+    margin: 0;
+    font-size: clamp(1.35rem, 2.6vw, 1.9rem);
+    line-height: 1.1;
+}
+
+.modal-session-list {
+    max-height: min(55vh, 480px);
+    padding-right: 6px;
 }
 
 .drawer-card {
