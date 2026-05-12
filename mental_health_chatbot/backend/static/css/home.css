@@ -41,17 +41,18 @@ select {
 
 .sidebar {
     border-right: 1px solid rgba(220, 201, 175, 0.45);
-    background: rgba(255, 250, 243, 0.72);
-    padding: 8px 8px 10px;
+    background:
+        linear-gradient(180deg, rgba(255, 250, 243, 0.94) 0%, rgba(248, 242, 233, 0.86) 100%);
+    padding: 14px 12px 12px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 14px;
     min-height: 0;
     overflow: hidden;
 }
 
 .logo-row {
-    padding: 8px 10px 14px;
+    padding: 6px 10px 10px;
 }
 
 .logo-button {
@@ -77,28 +78,29 @@ select {
     border: none;
     background: transparent;
     text-align: left;
-    padding: 9px 14px;
-    border-radius: 14px;
+    padding: 11px 14px;
+    border-radius: 16px;
     color: var(--ink);
     cursor: pointer;
     font-size: 0.95rem;
+    transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .primary-nav,
 .nav-button:hover,
 .session-item:hover {
-    background: rgba(31, 41, 51, 0.06);
+    background: rgba(31, 41, 51, 0.065);
 }
 
 .active-nav {
-    background: rgba(31, 122, 107, 0.12);
+    background: rgba(31, 122, 107, 0.14);
     color: var(--accent-dark);
 }
 
 .sidebar-nav,
 .session-list {
     display: grid;
-    gap: 4px;
+    gap: 6px;
 }
 
 .sidebar-top,
@@ -111,6 +113,7 @@ select {
     flex: 1;
     flex-direction: column;
     overflow: hidden;
+    gap: 10px;
 }
 
 .sidebar-history {
@@ -118,12 +121,12 @@ select {
     flex: 1;
     flex-direction: column;
     min-height: 0;
-    margin-top: 10px;
+    margin-top: 4px;
 }
 
 .sidebar-bottom {
     display: grid;
-    gap: 6px;
+    gap: 8px;
     flex-shrink: 0;
 }
 
@@ -153,6 +156,74 @@ select {
     padding-right: 4px;
 }
 
+.sidebar-history-card {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 10px;
+    min-height: 0;
+    height: 100%;
+    padding: 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(220, 201, 175, 0.7);
+    background:
+        linear-gradient(180deg, rgba(255, 250, 243, 0.98), rgba(248, 243, 235, 0.94));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.sidebar-history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.sidebar-history-label {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.sidebar-history-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(31, 122, 107, 0.1);
+    color: var(--accent-dark);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.history-session-list {
+    gap: 2px;
+    padding-right: 0;
+}
+
+.session-search-label {
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.session-search-input {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px 12px;
+    background: rgba(255, 250, 243, 0.96);
+    color: var(--ink);
+}
+
+.session-search-input:focus {
+    outline: 2px solid rgba(31, 122, 107, 0.18);
+    border-color: rgba(31, 122, 107, 0.35);
+}
+
 .promo-card,
 .info-card,
 .modal-card,
@@ -165,8 +236,8 @@ select {
 }
 
 .promo-card {
-    margin-top: 12px;
-    border-radius: 20px;
+    margin-top: 6px;
+    border-radius: 22px;
     padding: 14px;
 }
 
@@ -207,6 +278,7 @@ select {
     padding: 0 18px;
     cursor: pointer;
     font-size: 0.95rem;
+    transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease;
 }
 
 .promo-button,
@@ -219,6 +291,7 @@ select {
 .dark-button {
     background: #111111;
     color: white;
+    box-shadow: 0 10px 20px rgba(17, 17, 17, 0.14);
 }
 
 .light-button,
@@ -226,6 +299,7 @@ select {
     background: rgba(255, 250, 243, 0.96);
     color: var(--ink);
     border: 1px solid var(--line);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .promo-secondary {
@@ -243,8 +317,12 @@ select {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 26px;
+    padding: 16px 26px 14px;
     gap: 16px;
+    border-bottom: 1px solid rgba(220, 201, 175, 0.42);
+    background:
+        linear-gradient(180deg, rgba(255, 250, 243, 0.78), rgba(255, 250, 243, 0.54));
+    backdrop-filter: blur(10px);
 }
 
 .model-name {
@@ -254,7 +332,7 @@ select {
 
 .topbar-actions {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
 }
 
@@ -265,16 +343,49 @@ select {
     justify-content: flex-end;
 }
 
+#user-actions {
+    padding: 6px;
+    border-radius: 999px;
+    background: rgba(255, 250, 243, 0.76);
+    border: 1px solid rgba(220, 201, 175, 0.78);
+    box-shadow: 0 10px 24px rgba(74, 60, 45, 0.08);
+}
+
 .user-pill {
     display: inline-flex;
     align-items: center;
     min-height: 42px;
-    padding: 0 14px;
+    padding: 0 16px;
     border-radius: 999px;
-    background: rgba(31, 122, 107, 0.1);
+    background: linear-gradient(180deg, rgba(221, 236, 231, 0.98), rgba(233, 242, 238, 0.96));
     color: var(--accent-dark);
-    font-size: 0.92rem;
+    font-size: 0.9rem;
     font-weight: 700;
+    border: 1px solid rgba(31, 122, 107, 0.08);
+    letter-spacing: 0.01em;
+}
+
+#user-actions .auth-button {
+    min-height: 40px;
+    padding: 0 20px;
+}
+
+#user-actions .light-button:hover,
+#user-actions .dark-button:hover,
+#guest-actions .auth-button:hover {
+    transform: translateY(-1px);
+}
+
+#user-actions .light-button {
+    background: rgba(255, 252, 248, 0.98);
+}
+
+#user-actions .dark-button {
+    background: linear-gradient(180deg, #171717, #0d0d0d);
+}
+
+#guest-actions .light-button {
+    background: rgba(255, 252, 248, 0.92);
 }
 
 .center-stage {
@@ -471,6 +582,31 @@ select {
     position: relative;
 }
 
+.search-modal-card {
+    width: min(720px, 100%);
+    display: grid;
+    gap: 12px;
+    padding: 24px;
+    background:
+        radial-gradient(circle at top right, rgba(31, 122, 107, 0.1), transparent 28%),
+        rgba(255, 250, 243, 0.98);
+}
+
+.search-modal-header {
+    padding-right: 40px;
+}
+
+.search-modal-title {
+    margin: 0;
+    font-size: clamp(1.35rem, 2.6vw, 1.9rem);
+    line-height: 1.1;
+}
+
+.modal-session-list {
+    max-height: min(55vh, 480px);
+    padding-right: 6px;
+}
+
 .drawer-card {
     width: min(980px, 100%);
 }
@@ -534,6 +670,10 @@ select {
     background: var(--panel-strong);
     border-radius: 14px;
     padding: 10px;
+}
+
+.mini-stat-card {
+    border: 1px solid rgba(220, 201, 175, 0.55);
 }
 
 .mini-stats strong {
@@ -629,27 +769,66 @@ select {
 .session-item {
     width: 100%;
     text-align: left;
-    border: 1px solid var(--line);
-    background: rgba(255, 250, 243, 0.88);
-    border-radius: 14px;
-    padding: 10px 12px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 12px;
+    padding: 9px 10px;
     cursor: pointer;
     display: grid;
-    gap: 6px;
+    gap: 3px;
+    transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
 }
 
 .session-item.active {
-    border-color: rgba(31, 122, 107, 0.4);
-    background: rgba(31, 122, 107, 0.1);
+    border-color: rgba(31, 122, 107, 0.16);
+    background: rgba(31, 122, 107, 0.09);
+}
+
+.history-session-list .session-item {
+    border-bottom: 1px solid rgba(220, 201, 175, 0.42);
+    border-radius: 10px;
+}
+
+.history-session-list .session-item:last-child {
+    border-bottom-color: transparent;
+}
+
+.session-item:hover,
+.nav-button:hover {
+    transform: translateY(-1px);
+}
+
+.history-session-list .session-item:hover {
+    background: rgba(31, 41, 51, 0.045);
+    border-color: transparent;
+}
+
+.history-session-list .session-item.active:hover {
+    background: rgba(31, 122, 107, 0.09);
 }
 
 .session-item strong {
     display: -webkit-box;
     overflow: hidden;
-    line-height: 1.28;
-    font-size: 0.98rem;
+    line-height: 1.3;
+    font-size: 0.94rem;
+    font-weight: 500;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
+}
+
+.history-session-list .session-item strong {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.session-item span {
+    font-size: 0.78rem;
+    opacity: 0.86;
+}
+
+.history-session-list .session-item span {
+    font-size: 0.74rem;
 }
 
 .meta-grid {
@@ -679,6 +858,8 @@ select {
 
 .empty-state {
     color: var(--muted);
+    padding: 10px 4px 4px;
+    line-height: 1.5;
 }
 
 .reduce-motion * {

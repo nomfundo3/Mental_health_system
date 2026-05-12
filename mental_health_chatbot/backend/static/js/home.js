@@ -9,10 +9,13 @@ const chatStatus = document.getElementById("chat-status");
 const moodStatus = document.getElementById("mood-status");
 const resourcesStatus = document.getElementById("resources-status");
 const settingsStatus = document.getElementById("settings-status");
+const historyStatus = document.getElementById("history-status");
+const searchStatus = document.getElementById("search-status");
 
 const resourcesList = document.getElementById("resources-list");
-const sessionList = document.getElementById("session-list");
-const dashboardStatus = document.getElementById("dashboard-status");
+const historySessionList = document.getElementById("history-session-list");
+const searchSessionList = document.getElementById("search-session-list");
+const sessionSearchInput = document.getElementById("session-search");
 const chatTranscript = document.getElementById("chat-transcript");
 const heroEmpty = document.getElementById("hero-empty");
 const flaggedList = document.getElementById("flagged-list");
@@ -25,6 +28,7 @@ const chatTitle = document.getElementById("chat-title");
 const topbarUserLabel = document.getElementById("topbar-user-label");
 
 const factSessionCount = document.getElementById("fact-session-count");
+const factSessionCountDrawer = document.getElementById("fact-session-count-drawer");
 const factResourceCount = document.getElementById("fact-resource-count");
 const factFlaggedCount = document.getElementById("fact-flagged-count");
 const flaggedStatCard = document.getElementById("flagged-stat-card");
@@ -49,6 +53,8 @@ const openAdminPanelButton = document.getElementById("open-admin-panel");
 const openAccountButton = document.getElementById("open-account");
 const closeAuthModalButton = document.getElementById("close-auth-modal");
 const authModal = document.getElementById("auth-modal");
+const searchModal = document.getElementById("search-modal");
+const closeSearchModalButton = document.getElementById("close-search-modal");
 const loginPanel = document.getElementById("login-panel");
 const registerPanel = document.getElementById("register-panel");
 const accountSummary = document.getElementById("account-summary");
@@ -92,6 +98,20 @@ let currentUser = null;
 let currentSessionId = null;
 let currentTranscriptMessages = [];
 let currentSessions = [];
+let currentSearchSessions = [];
+let sessionSearchTimeoutId = null;
+let guestChatUsage = null;
+
+function resetSessionSearchResults(message = "Start typing to search your saved chats.") {
+    currentSearchSessions = [];
+    if (searchSessionList) {
+        searchSessionList.className = "session-list modal-session-list empty-state";
+        searchSessionList.textContent = currentUser ? message : "Log in to search saved chats.";
+    }
+    if (searchStatus) {
+        searchStatus.textContent = "";
+    }
+}
 
 function setChatStatus(message = "", isError = false) {
     if (!chatStatus) {
@@ -101,6 +121,25 @@ function setChatStatus(message = "", isError = false) {
     chatStatus.textContent = message;
     chatStatus.classList.toggle("hidden", !message);
     chatStatus.classList.toggle("error-text", Boolean(message && isError));
+}
+
+function setHistoryStatus(message = "", isError = false) {
+    if (!historyStatus) {
+        return;
+    }
+
+    historyStatus.textContent = message;
+    historyStatus.classList.toggle("hidden", !message);
+    historyStatus.classList.toggle("error-text", Boolean(message && isError));
+}
+
+function updateGuestChatStatus() {
+    if (currentUser || !guestChatUsage) {
+        return;
+    }
+
+    const remaining = Number(guestChatUsage.tokens_remaining ?? 0);
+    setChatStatus(`Guest mode: about ${remaining} tokens left. Log in to save chats.`, false);
 }
 
 function isSupportUser(user = currentUser) {
@@ -191,6 +230,23 @@ function closeAuthPanel() {
     authModal?.classList.add("hidden");
 }
 
+function openSearchModal() {
+    if (!searchModal) {
+        return;
+    }
+
+    searchModal.classList.remove("hidden");
+    resetSessionSearchResults();
+    requestAnimationFrame(() => {
+        sessionSearchInput?.focus();
+        sessionSearchInput?.select();
+    });
+}
+
+function closeSearchModal() {
+    searchModal?.classList.add("hidden");
+}
+
 function openDrawer() {
     utilityDrawer?.classList.remove("hidden");
 }
@@ -244,7 +300,7 @@ function updateAuthChrome(user) {
     if (promoCopy) {
         promoCopy.textContent = isAuthenticated
             ? "Your saved chats, mood check-ins, and support resources are ready when you are."
-            : "Log in to save chats, mood check-ins, and support resources.";
+            : "You can start chatting right away as a guest, or log in to save chats, mood check-ins, and support resources.";
     }
 }
 
@@ -279,7 +335,7 @@ function setActiveUser(user) {
     if (activeUserMeta) {
         activeUserMeta.textContent = user
             ? `${user.username} is signed in and ready to continue.`
-            : "Register or log in to begin.";
+            : "You can start chatting now, or log in to save your progress.";
     }
     if (chatTitle) {
         chatTitle.textContent = user
@@ -290,6 +346,12 @@ function setActiveUser(user) {
     updateAuthChrome(user);
     updateSupportChrome(user);
     updateOrderedFlow();
+
+    if (user) {
+        setChatStatus("");
+    } else {
+        updateGuestChatStatus();
+    }
 }
 
 function setSessionSummary(session) {
@@ -378,29 +440,87 @@ function renderTranscript(messages = []) {
     scrollTranscriptToBottom();
 }
 
-function renderSessions(sessions = []) {
+function buildSessionMarkup(sessions = []) {
+    return sessions.map((session) => `
+        <button type="button" data-session-id="${session.id}" class="session-item ${Number(session.id) === currentSessionId ? "active" : ""}">
+            <strong>${escapeHtml(session.title || "Support chat")}</strong>
+            <span>${escapeHtml(session.last_risk_level || "low")} risk</span>
+        </button>
+    `).join("");
+}
+
+function renderHistorySessions(sessions = []) {
     const safeSessions = Array.isArray(sessions) ? sessions : [];
     currentSessions = safeSessions;
 
     if (factSessionCount) {
         factSessionCount.textContent = safeSessions.length;
     }
+    if (factSessionCountDrawer) {
+        factSessionCountDrawer.textContent = safeSessions.length;
+    }
 
     if (!safeSessions.length) {
-        sessionList.className = "session-list empty-state";
-        sessionList.textContent = currentUser
-            ? "No saved chats yet. Start a conversation and it will appear here."
-            : "Log in to browse saved chats.";
+        if (!currentUser) {
+            historySessionList.className = "session-list empty-state";
+            historySessionList.textContent = "Log in to browse saved chats.";
+        } else {
+            historySessionList.className = "session-list empty-state";
+            historySessionList.textContent = "No saved chats yet. Start a conversation and it will appear here.";
+        }
         return;
     }
 
-    sessionList.className = "session-list";
-    sessionList.innerHTML = safeSessions.map((session) => `
-        <button type="button" data-session-id="${session.id}" class="session-item ${Number(session.id) === currentSessionId ? "active" : ""}">
-            <strong>${escapeHtml(session.title || "Support chat")}</strong>
-            <span>${escapeHtml(session.last_risk_level || "low")} risk</span>
-        </button>
-    `).join("");
+    historySessionList.className = "session-list";
+    historySessionList.innerHTML = buildSessionMarkup(safeSessions);
+}
+
+function renderSearchSessions(sessions = []) {
+    const safeSessions = Array.isArray(sessions) ? sessions : [];
+    const searchTerm = sessionSearchInput?.value.trim() || "";
+    currentSearchSessions = safeSessions;
+
+    if (!safeSessions.length) {
+        searchSessionList.className = "session-list modal-session-list empty-state";
+        if (!currentUser) {
+            searchSessionList.textContent = "Log in to search saved chats.";
+        } else if (!searchTerm) {
+            searchSessionList.textContent = "Start typing to search your saved chats.";
+        } else {
+            searchSessionList.textContent = `No chats found for "${searchTerm}".`;
+        }
+        return;
+    }
+
+    searchSessionList.className = "session-list modal-session-list";
+    searchSessionList.innerHTML = buildSessionMarkup(safeSessions);
+}
+
+async function loadHistorySessions() {
+    if (!currentUser) {
+        setHistoryStatus("");
+        renderHistorySessions([]);
+        return;
+    }
+
+    setHistoryStatus("Loading chats...");
+
+    try {
+        const response = await fetch("/api/chat/sessions/", {
+            credentials: "same-origin",
+        });
+
+        if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const sessions = await response.json();
+        setHistoryStatus("");
+        renderHistorySessions(sessions);
+    } catch (error) {
+        console.error("Load history error:", error);
+        setHistoryStatus("Could not load chats yet.", true);
+    }
 }
 
 function renderResources(resources = []) {
@@ -480,26 +600,45 @@ async function loadCurrentUser() {
         }
 
         const payload = await response.json();
+        guestChatUsage = payload.guest_chat || null;
         if (payload.authenticated && payload.user) {
             setActiveUser(payload.user);
-            await loadSessions();
+            await loadHistorySessions();
+            return;
         }
+
+        setActiveUser(null);
     } catch (error) {
         console.error("Could not load current user:", error);
     }
 }
 
 async function loadSessions() {
+    const searchTerm = sessionSearchInput?.value.trim() || "";
+
     if (!currentUser) {
-        dashboardStatus.textContent = "Log in to view saved chats.";
-        renderSessions([]);
+        resetSessionSearchResults("Log in to search saved chats.");
+        if (searchStatus) {
+            searchStatus.textContent = "Log in to search saved chats.";
+        }
+        renderSearchSessions([]);
         return;
     }
 
-    dashboardStatus.textContent = "Loading sessions...";
+    if (!searchTerm) {
+        resetSessionSearchResults();
+        return;
+    }
+
+    if (searchStatus) {
+        searchStatus.textContent = "Searching chats...";
+    }
 
     try {
-        const response = await fetch("/api/chat/sessions/", {
+        const query = new URLSearchParams();
+        query.set("search", searchTerm);
+
+        const response = await fetch(`/api/chat/sessions/?${query.toString()}`, {
             credentials: "same-origin",
         });
 
@@ -508,11 +647,15 @@ async function loadSessions() {
         }
 
         const sessions = await response.json();
-        dashboardStatus.textContent = sessions.length ? "" : "No saved chats yet.";
-        renderSessions(sessions);
+        if (searchStatus) {
+            searchStatus.textContent = sessions.length ? "" : `No chats found for "${searchTerm}".`;
+        }
+        renderSearchSessions(sessions);
     } catch (error) {
         console.error("Load sessions error:", error);
-        dashboardStatus.textContent = "Could not load sessions yet.";
+        if (searchStatus) {
+            searchStatus.textContent = "Could not search chats yet.";
+        }
     }
 }
 
@@ -573,7 +716,7 @@ function showMoodSection() {
 
 async function showSessionHistory() {
     setActiveSidebarButton(loadSessionsButton);
-    await loadSessions();
+    openSearchModal();
 }
 
 async function showResourcesSection() {
@@ -706,9 +849,10 @@ loginForm.addEventListener("submit", async (event) => {
     try {
         const data = await postJson("/api/users/login/", payload);
         loginStatus.textContent = "Login successful.";
+        guestChatUsage = null;
         setActiveUser(data.user);
         closeAuthPanel();
-        await loadSessions();
+        await loadHistorySessions();
     } catch (error) {
         console.error("Login error:", error);
         loginStatus.textContent = error.message || "Could not log in yet.";
@@ -718,12 +862,6 @@ loginForm.addEventListener("submit", async (event) => {
 chatForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const messageText = messageInput.value.trim();
-
-    if (!currentUser) {
-        setChatStatus("Please log in before chatting.", true);
-        openAuthPanel("login");
-        return;
-    }
 
     if (!messageText) {
         setChatStatus("Type a message first.", true);
@@ -770,7 +908,11 @@ chatForm.addEventListener("submit", async (event) => {
         });
 
         if (!response.ok) {
-            throw new Error(`Request failed with status ${response.status}`);
+            const errorPayload = await response.json().catch(() => ({}));
+            if (errorPayload.guest_chat) {
+                guestChatUsage = errorPayload.guest_chat;
+            }
+            throw new Error(errorPayload.detail || `Request failed with status ${response.status}`);
         }
         if (!response.body) {
             throw new Error("Streaming is not available because the response body is missing.");
@@ -839,15 +981,20 @@ chatForm.addEventListener("submit", async (event) => {
 
         setSessionSummary(finalData.session);
         setSafetySummary(finalData.assessment);
+        guestChatUsage = finalData.guest_chat || guestChatUsage;
         renderTranscript(Array.isArray(finalData.session.messages) ? finalData.session.messages : []);
         renderResources(finalData.resources || []);
-        if (finalData.response_source && finalData.response_source !== "ai_service") {
+        if (!currentUser && guestChatUsage) {
+            updateGuestChatStatus();
+        } else if (finalData.response_source && finalData.response_source !== "ai_service") {
             setChatStatus("Fallback support guidance was used for this reply.", false);
         } else {
             setChatStatus("");
         }
 
-        await loadSessions();
+        if (currentUser) {
+            await loadHistorySessions();
+        }
     } catch (error) {
         console.error("Chat error:", error);
         setChatStatus(error.message || "Could not send message yet.", true);
@@ -896,42 +1043,89 @@ moodForm.addEventListener("submit", async (event) => {
     }
 });
 
-sessionList.addEventListener("click", async (event) => {
-    const button = event.target.closest(".session-item");
-    if (!button || !currentUser) {
+function updateSessionCollections(session) {
+    if (!session) {
         return;
     }
 
-    const sessionId = Number(button.dataset.sessionId);
-    if (!sessionId) {
-        return;
-    }
+    const updatedHistorySessions = currentSessions.map((item) => (
+        Number(item.id) === Number(session.id) ? session : item
+    ));
+    const updatedSearchSessions = currentSearchSessions.map((item) => (
+        Number(item.id) === Number(session.id) ? session : item
+    ));
+    renderHistorySessions(updatedHistorySessions);
+    renderSearchSessions(updatedSearchSessions);
+}
 
-    try {
-        dashboardStatus.textContent = "Opening saved chat...";
-        const response = await fetch(`/api/chat/sessions/${sessionId}/`, {
-            credentials: "same-origin",
-        });
-
-        if (!response.ok) {
-            throw new Error(`Request failed with status ${response.status}`);
+function handleSessionListClick(listElement, shouldCloseSearch = false) {
+    listElement?.addEventListener("click", async (event) => {
+        const button = event.target.closest(".session-item");
+        if (!button || !currentUser) {
+            return;
         }
 
-        const session = await response.json();
-        dashboardStatus.textContent = "";
-        setSessionSummary(session);
-        renderTranscript(Array.isArray(session.messages) ? session.messages : []);
-        renderSessions(currentSessions.map((item) => (Number(item.id) === sessionId ? session : item)));
-        setActiveSidebarButton(loadSessionsButton);
-    } catch (error) {
-        console.error("Open session error:", error);
-        dashboardStatus.textContent = error.message || "Could not open that saved chat yet.";
-    }
-});
+        const sessionId = Number(button.dataset.sessionId);
+        if (!sessionId) {
+            return;
+        }
+
+        try {
+            if (shouldCloseSearch) {
+                if (searchStatus) {
+                    searchStatus.textContent = "Opening saved chat...";
+                }
+            } else if (historyStatus) {
+                setHistoryStatus("Opening saved chat...");
+            }
+
+            const response = await fetch(`/api/chat/sessions/${sessionId}/`, {
+                credentials: "same-origin",
+            });
+
+            if (!response.ok) {
+                throw new Error(`Request failed with status ${response.status}`);
+            }
+
+            const session = await response.json();
+            if (shouldCloseSearch) {
+                if (searchStatus) {
+                    searchStatus.textContent = "";
+                }
+            } else if (historyStatus) {
+                setHistoryStatus("");
+            }
+            setSessionSummary(session);
+            renderTranscript(Array.isArray(session.messages) ? session.messages : []);
+            updateSessionCollections(session);
+            setActiveSidebarButton(loadSessionsButton);
+            if (shouldCloseSearch) {
+                closeSearchModal();
+            }
+        } catch (error) {
+            console.error("Open session error:", error);
+            const message = error.message || "Could not open that saved chat yet.";
+            if (shouldCloseSearch) {
+                if (searchStatus) {
+                    searchStatus.textContent = message;
+                }
+            } else if (historyStatus) {
+                setHistoryStatus(message, true);
+            }
+        }
+    });
+}
+
+handleSessionListClick(historySessionList, false);
+handleSessionListClick(searchSessionList, true);
 
 function handleNewChat(statusMessage = "New chat ready.") {
     closeDrawer();
     setActiveSidebarButton(newChatButton);
+    if (sessionSearchInput) {
+        sessionSearchInput.value = "";
+    }
+    resetSessionSearchResults();
     resetWorkspace(statusMessage);
 }
 
@@ -939,6 +1133,21 @@ newChatButton.addEventListener("click", () => handleNewChat("New chat ready."));
 sidebarHomeButton?.addEventListener("click", () => handleNewChat(""));
 
 loadSessionsButton.addEventListener("click", showSessionHistory);
+sessionSearchInput?.addEventListener("input", () => {
+    if (sessionSearchTimeoutId) {
+        clearTimeout(sessionSearchTimeoutId);
+    }
+
+    sessionSearchTimeoutId = window.setTimeout(() => {
+        loadSessions();
+    }, 250);
+});
+sessionSearchInput?.addEventListener("search", () => {
+    if (sessionSearchTimeoutId) {
+        clearTimeout(sessionSearchTimeoutId);
+    }
+    loadSessions();
+});
 loadResourcesButton.addEventListener("click", showResourcesSection);
 loadFlaggedButton.addEventListener("click", showFlaggedSection);
 showMoodPanelButton.addEventListener("click", showMoodSection);
@@ -953,6 +1162,7 @@ openAdminPanelButton?.addEventListener("click", () => {
 });
 openAccountButton?.addEventListener("click", () => openAuthPanel("account"));
 closeAuthModalButton.addEventListener("click", closeAuthPanel);
+closeSearchModalButton?.addEventListener("click", closeSearchModal);
 closeDrawerButton.addEventListener("click", closeDrawer);
 
 textSizeSelect?.addEventListener("change", () => savePreferences());
@@ -970,8 +1180,14 @@ async function handleLogout() {
         await postJson("/api/users/logout/");
     } finally {
         setActiveUser(null);
+        guestChatUsage = null;
+        if (sessionSearchInput) {
+            sessionSearchInput.value = "";
+        }
         currentSessions = [];
-        renderSessions([]);
+        currentSearchSessions = [];
+        resetSessionSearchResults("Log in to search saved chats.");
+        renderHistorySessions([]);
         resetWorkspace("You have logged out.");
         setActiveSidebarButton(newChatButton);
         closeAuthPanel();
@@ -988,9 +1204,21 @@ authModal?.addEventListener("click", (event) => {
     }
 });
 
+searchModal?.addEventListener("click", (event) => {
+    if (event.target === searchModal) {
+        closeSearchModal();
+    }
+});
+
 utilityDrawer?.addEventListener("click", (event) => {
     if (event.target === utilityDrawer) {
         closeDrawer();
+    }
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+        closeSearchModal();
     }
 });
 
@@ -1000,6 +1228,9 @@ async function initializeApp() {
     setSessionSummary(null);
     setSafetySummary(null);
     setChatStatus("");
+    if (sessionSearchInput) {
+        sessionSearchInput.value = "";
+    }
     toggleChatEmpty(true);
     setActiveSidebarButton(newChatButton);
     await loadCurrentUser();

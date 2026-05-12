@@ -27,9 +27,15 @@
                 </nav>
 
                 <div class="sidebar-history">
-                    <div id="dashboard-status" class="status-text"></div>
-                    <div id="session-list" class="session-list empty-state">
-                        Log in to browse saved chats.
+                    <div class="sidebar-history-card">
+                        <div class="sidebar-history-header">
+                            <p class="sidebar-history-label">Recent chats</p>
+                            <span class="sidebar-history-count" id="fact-session-count">0</span>
+                        </div>
+                        <div id="history-status" class="status-text hidden"></div>
+                        <div id="history-session-list" class="session-list history-session-list empty-state">
+                            Log in to browse saved chats.
+                        </div>
                     </div>
                 </div>
             </div>
@@ -132,6 +138,29 @@
         </div>
     </section>
 
+    <section id="search-modal" class="modal hidden">
+        <div class="modal-card search-modal-card">
+            <button id="close-search-modal" class="close-button" type="button">x</button>
+            <div class="search-modal-header">
+                <p class="section-label">Search chats</p>
+                <h2 class="search-modal-title">Find a saved conversation</h2>
+                <p class="muted-copy">Search by chat title or anything said inside the conversation.</p>
+            </div>
+            <label class="session-search-label" for="session-search">Search saved chats</label>
+            <input
+                id="session-search"
+                class="session-search-input"
+                type="search"
+                placeholder="Try: exam stress, panic, deadline"
+                autocomplete="off"
+            >
+            <div id="search-status" class="status-text"></div>
+            <div id="search-session-list" class="session-list modal-session-list empty-state">
+                Start typing to search your saved chats.
+            </div>
+        </div>
+    </section>
+
     <section id="utility-drawer" class="utility-drawer hidden">
         <div class="drawer-card">
             <button id="close-drawer" class="close-button" type="button">x</button>
@@ -148,15 +177,15 @@
                 <section class="info-card">
                     <p class="section-label">Session summary</p>
                     <div class="mini-stats">
-                        <div>
+                        <div class="mini-stat-card">
                             <span>Sessions</span>
-                            <strong id="fact-session-count">0</strong>
+                            <strong id="fact-session-count-drawer">0</strong>
                         </div>
-                        <div>
+                        <div class="mini-stat-card">
                             <span>Resources</span>
                             <strong id="fact-resource-count">0</strong>
                         </div>
-                        <div id="flagged-stat-card" class="hidden">
+                        <div id="flagged-stat-card" class="mini-stat-card hidden">
                             <span>Flagged</span>
                             <strong id="fact-flagged-count">0</strong>
                         </div>
