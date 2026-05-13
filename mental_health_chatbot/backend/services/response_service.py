@@ -9,6 +9,7 @@ def build_support_response(message: str, assessment: dict, resources: list[dict]
     summary = _summarize_message(message)
     categories = assessment.get("resource_categories", [])
     primary_category = next((category for category in categories if category != "general"), "general")
+    acknowledgement = _build_acknowledgement(summary=summary, sentiment=assessment.get("sentiment", "neutral"))
 
     resource_hint = ""
     if resources:
@@ -30,7 +31,7 @@ def build_support_response(message: str, assessment: dict, resources: list[dict]
     if assessment["risk_level"] == "medium":
         guidance = _category_guidance(primary_category)
         return (
-            f"It sounds like things have been weighing on you lately, especially around {summary}, and I appreciate you sharing that. "
+            f"{acknowledgement} "
             "Those feelings are valid, and reaching out is a strong step. "
             f"Let's start with something practical: {guidance} "
             "If that feels manageable, try it for a minute or two and notice whether the intensity comes down even slightly."
@@ -38,7 +39,7 @@ def build_support_response(message: str, assessment: dict, resources: list[dict]
         )
 
     return (
-        f"Thank you for sharing what's on your mind about {summary}. That takes courage, and I'm here to support you. "
+        f"{acknowledgement} "
         "Reaching out is a strong first step, whether you're looking for coping strategies, trying to understand your emotions, or simply needing a place to pause and reflect. "
         f"We can explore small next steps connected to {primary_category}, practice mood check-ins to track how you're feeling over time, "
         "and connect you with support resources tailored to what you need. "
@@ -146,6 +147,8 @@ def _build_system_prompt(*, assessment: dict, resources: list[dict], user=None) 
         "You are a compassionate and supportive mental health chatbot for students.",
         "Do not diagnose, do not claim to be a therapist, and do not invent crisis hotlines.",
         "Write thoughtful, warm, and detailed responses in full paragraphs. Aim for 2-3 substantial paragraphs.",
+        "Answer the student's actual question directly before adding broader reassurance when they ask for advice or information.",
+        "Do not repeatedly begin responses with 'thank you for sharing' or similar stock phrases.",
         "Provide practical, concrete next steps and coping strategies.",
         "Show genuine empathy and validate their feelings before offering advice.",
         "If the message appears risky, strongly encourage reaching out to trusted human support.",
@@ -186,3 +189,11 @@ def _category_guidance(category: str) -> str:
     return (
         "try taking one slow breath, unclenching your shoulders, and writing down the main thing that feels hardest right now."
     )
+
+
+def _build_acknowledgement(*, summary: str, sentiment: str) -> str:
+    if sentiment == "negative":
+        return f"It sounds like {summary} has been feeling heavy for you, and you deserve support with it."
+    if sentiment == "positive":
+        return f"It sounds like {summary} has been meaningful for you, and we can build on that."
+    return f"It sounds like {summary} is what you're trying to work through right now, and I'm here with you."

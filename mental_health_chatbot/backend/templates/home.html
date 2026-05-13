@@ -29,17 +29,33 @@
                 </nav>
 
                 <div class="sidebar-history">
-                    <div id="dashboard-status" class="status-text"></div>
-                    <div id="session-list" class="session-list empty-state">
-                        Log in to browse saved chats.
+                    <div class="sidebar-history-card">
+                        <div class="sidebar-history-header">
+                            <button
+                                id="toggle-history"
+                                class="sidebar-history-toggle"
+                                type="button"
+                                aria-expanded="true"
+                                aria-controls="history-session-list"
+                            >
+                                <span>Recent chats</span>
+                                <span class="history-chevron" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" focusable="false">
+                                        <path d="m6 9 6 6 6-6"></path>
+                                    </svg>
+                                </span>
+                            </button>
+                            <span class="sidebar-history-count" id="fact-session-count">0</span>
+                        </div>
+                        <div id="history-status" class="status-text hidden"></div>
+                        <div id="history-session-list" class="session-list history-session-list empty-state">
+                            Log in to browse saved chats.
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="sidebar-bottom">
-                <button id="open-settings" class="nav-button" type="button">Settings</button>
-                <button id="open-help" class="nav-button" type="button">Help</button>
-
                 <div id="promo-card" class="promo-card">
                     <p id="promo-title" class="promo-title">Get support tailored to you</p>
                     <p id="promo-copy" class="promo-copy">
@@ -47,6 +63,59 @@
                     </p>
                     <div id="promo-guest-actions" class="promo-actions">
                         <button id="open-login" class="promo-button" type="button">Log in</button>
+                    </div>
+                </div>
+
+                <div id="account-menu-wrap" class="account-menu-wrap hidden">
+                    <button id="account-menu-button" class="account-chip" type="button" aria-expanded="false" aria-controls="account-menu">
+                        <span id="account-avatar" class="account-avatar">MH</span>
+                        <span class="account-chip-text">
+                            <strong id="account-menu-name">Student</strong>
+                            <span id="account-menu-role">Free</span>
+                        </span>
+                        <span class="account-menu-arrow" aria-hidden="true">></span>
+                    </button>
+
+                    <div id="account-menu" class="account-menu hidden">
+                        <button id="menu-profile" class="account-menu-item" type="button">
+                            <span class="menu-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M20 21a8 8 0 0 0-16 0"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                            </span>
+                            <span>Profile</span>
+                        </button>
+                        <button id="open-settings" class="account-menu-item" type="button">
+                            <span class="menu-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"></path>
+                                    <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15Z"></path>
+                                </svg>
+                            </span>
+                            <span>Settings</span>
+                        </button>
+                        <button id="open-help" class="account-menu-item" type="button">
+                            <span class="menu-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <path d="M9.1 9a3 3 0 1 1 5.6 1.5c-.9 1.2-2.2 1.5-2.6 3"></path>
+                                    <path d="M12 17h.01"></path>
+                                </svg>
+                            </span>
+                            <span>Help</span>
+                            <span class="account-menu-arrow" aria-hidden="true">></span>
+                        </button>
+                        <button id="logout-menu" class="account-menu-item" type="button">
+                            <span class="menu-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                    <path d="M16 17l5-5-5-5"></path>
+                                    <path d="M21 12H9"></path>
+                                </svg>
+                            </span>
+                            <span>Log out</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -66,8 +135,6 @@
                         <span id="topbar-role-badge" class="role-badge hidden">Admin</span>
                         <span id="topbar-user-label" class="user-pill">Guest</span>
                         <button id="open-admin-panel" class="auth-button light-button hidden" type="button">Admin panel</button>
-                        <button id="open-account" class="auth-button light-button" type="button">Account</button>
-                        <button id="logout-top" class="auth-button dark-button" type="button">Log out</button>
                     </div>
                 </div>
             </header>
@@ -135,11 +202,138 @@
         </div>
     </section>
 
+    <section id="search-modal" class="modal hidden">
+        <div class="modal-card search-modal-card">
+            <button id="close-search-modal" class="close-button" type="button">x</button>
+            <div class="search-modal-header">
+                <p class="section-label">Search chats</p>
+                <h2 class="search-modal-title">Find a saved conversation</h2>
+                <p class="muted-copy">Search by chat title or anything said inside the conversation.</p>
+            </div>
+            <label class="session-search-label" for="session-search">Search saved chats</label>
+            <input
+                id="session-search"
+                class="session-search-input"
+                type="search"
+                placeholder="Try: exam stress, panic, deadline"
+                autocomplete="off"
+            >
+            <div id="search-status" class="status-text"></div>
+            <div id="search-session-list" class="session-list modal-session-list empty-state">
+                Start typing to search your saved chats.
+            </div>
+        </div>
+    </section>
+
+    <section id="profile-modal" class="modal hidden">
+        <div class="modal-card profile-modal-card">
+            <button id="close-profile-modal" class="close-button" type="button">x</button>
+            <h2>Edit profile</h2>
+            <form id="profile-form" class="profile-form">
+                <div id="profile-avatar" class="profile-avatar">MH</div>
+                <label class="profile-field" for="profile-display-name">
+                    <span>Display name</span>
+                    <input id="profile-display-name" name="display_name" type="text" autocomplete="name">
+                </label>
+                <label class="profile-field" for="profile-username">
+                    <span>Username</span>
+                    <input id="profile-username" name="username" type="text" autocomplete="username">
+                </label>
+                <p class="muted-copy center-copy">Your profile name appears in this support dashboard.</p>
+                <div class="modal-actions">
+                    <button id="cancel-profile" class="auth-secondary" type="button">Cancel</button>
+                    <button class="dark-button auth-button" type="submit">Save</button>
+                </div>
+                <div id="profile-status" class="status-text"></div>
+            </form>
+        </div>
+    </section>
+
+    <section id="settings-modal" class="modal hidden">
+        <div class="modal-card settings-modal-card">
+            <button id="close-settings-modal" class="close-button" type="button">x</button>
+            <div class="settings-layout">
+                <aside class="settings-tabs" aria-label="Settings categories">
+                    <button class="settings-tab active" type="button" data-settings-tab="general">General</button>
+                    <button class="settings-tab" type="button" data-settings-tab="appearance">Appearance</button>
+                    <button class="settings-tab" type="button" data-settings-tab="privacy">Privacy</button>
+                    <button class="settings-tab" type="button" data-settings-tab="account">Account</button>
+                </aside>
+                <section class="settings-content">
+                    <h2 id="settings-modal-title">General</h2>
+                    <div class="settings-pane" data-settings-pane="general">
+                        <div class="settings-row">
+                            <span>Save chat history</span>
+                            <strong>On when logged in</strong>
+                        </div>
+                        <div class="settings-row">
+                            <span>Support mode</span>
+                            <strong>Student wellbeing</strong>
+                        </div>
+                    </div>
+                    <div class="settings-pane hidden" data-settings-pane="appearance">
+                        <label class="settings-row" for="text-size-select">
+                            <span>Text size</span>
+                            <select id="text-size-select">
+                                <option value="comfortable">Comfortable</option>
+                                <option value="compact">Compact</option>
+                                <option value="large">Large</option>
+                            </select>
+                        </label>
+                        <label class="settings-row" for="reduce-motion-toggle">
+                            <span>Reduce motion</span>
+                            <input id="reduce-motion-toggle" type="checkbox">
+                        </label>
+                    </div>
+                    <div class="settings-pane hidden" data-settings-pane="privacy">
+                        <div class="settings-row">
+                            <span>Mood check-ins</span>
+                            <strong>Saved only after login</strong>
+                        </div>
+                        <div class="settings-row">
+                            <span>Risk detection</span>
+                            <strong>Used for safety routing</strong>
+                        </div>
+                    </div>
+                    <div class="settings-pane hidden" data-settings-pane="account">
+                        <div class="settings-row">
+                            <span>Account type</span>
+                            <strong id="settings-account-type">Student</strong>
+                        </div>
+                        <button id="reset-preferences" class="auth-secondary" type="button">Reset preferences</button>
+                    </div>
+                    <div id="settings-status" class="status-text"></div>
+                </section>
+            </div>
+        </div>
+    </section>
+
+    <section id="help-modal" class="modal hidden">
+        <div class="modal-card help-modal-card">
+            <button id="close-help-modal" class="close-button" type="button">x</button>
+            <h2>Help</h2>
+            <div class="help-menu-grid">
+                <button id="help-center-action" class="help-menu-item" type="button">Help center</button>
+                <button id="help-resources-action" class="help-menu-item" type="button">Open resources</button>
+                <button id="help-shortcuts-action" class="help-menu-item" type="button">How to demo</button>
+                <button id="help-start-chat" class="help-menu-item" type="button">Start new chat</button>
+            </div>
+            <div id="help-detail" class="help-detail">
+                Mood check-in records how the student is feeling. Resources provides referral links. Search chats opens saved conversations. Profile and Settings manage the user experience.
+            </div>
+        </div>
+    </section>
+
     <section id="utility-drawer" class="utility-drawer hidden">
         <div class="drawer-card">
             <button id="close-drawer" class="close-button" type="button">x</button>
+            <div class="drawer-heading">
+                <p id="drawer-kicker" class="section-label">Workspace</p>
+                <h2 id="drawer-title">Student support tools</h2>
+                <p id="drawer-copy" class="muted-copy">Choose a tool from the sidebar.</p>
+            </div>
             <div class="drawer-grid">
-                <section class="info-card">
+                <section id="overview-panel" class="info-card">
                     <p class="section-label">Quick order</p>
                     <ol class="step-list">
                         <li id="step-register" class="step-item active-step">Register</li>
@@ -151,15 +345,15 @@
                 <section class="info-card">
                     <p class="section-label">Session summary</p>
                     <div class="mini-stats">
-                        <div>
+                        <div class="mini-stat-card">
                             <span>Sessions</span>
-                            <strong id="fact-session-count">0</strong>
+                            <strong id="fact-session-count-drawer">0</strong>
                         </div>
-                        <div>
+                        <div class="mini-stat-card">
                             <span>Resources</span>
                             <strong id="fact-resource-count">0</strong>
                         </div>
-                        <div id="flagged-stat-card" class="hidden">
+                        <div id="flagged-stat-card" class="mini-stat-card hidden">
                             <span>Flagged</span>
                             <strong id="fact-flagged-count">0</strong>
                         </div>
@@ -170,6 +364,7 @@
 
                 <section id="mood-panel" class="info-card">
                     <p class="section-label">Mood check-in</p>
+                    <p class="muted-copy">Save how you are feeling so the support record can track wellbeing over time.</p>
                     <form id="mood-form" class="auth-form">
                         <select id="mood" name="mood">
                             <option value="great">Great</option>
@@ -178,6 +373,9 @@
                             <option value="anxious">Anxious</option>
                             <option value="overwhelmed">Overwhelmed</option>
                         </select>
+                        <label class="field-stack" for="stress-level">
+                            <span>Stress level: <strong id="stress-level-value">3</strong>/5</span>
+                        </label>
                         <input id="stress-level" name="stress_level" type="range" min="1" max="5" value="3">
                         <textarea id="mood-notes" name="notes" rows="3" placeholder="Write a short note"></textarea>
                         <button type="submit">Save check-in</button>
@@ -187,48 +385,15 @@
 
                 <section id="resources-panel" class="info-card">
                     <p class="section-label">Support resources</p>
+                    <div class="resource-filters" aria-label="Resource categories">
+                        <button class="resource-filter active" type="button" data-category="">All</button>
+                        <button class="resource-filter" type="button" data-category="crisis">Crisis</button>
+                        <button class="resource-filter" type="button" data-category="stress">Stress</button>
+                        <button class="resource-filter" type="button" data-category="anxiety">Anxiety</button>
+                        <button class="resource-filter" type="button" data-category="general">General</button>
+                    </div>
                     <div id="resources-status" class="status-text"></div>
                     <div id="resources-list" class="resource-list"></div>
-                </section>
-
-                <section id="settings-panel" class="info-card">
-                    <p class="section-label">Settings</p>
-                    <div class="settings-stack">
-                        <label class="field-stack" for="text-size-select">
-                            <span>Text size</span>
-                            <select id="text-size-select">
-                                <option value="comfortable">Comfortable</option>
-                                <option value="compact">Compact</option>
-                                <option value="large">Large</option>
-                            </select>
-                        </label>
-                        <label class="checkbox-row">
-                            <input id="reduce-motion-toggle" type="checkbox">
-                            <span>Reduce motion when opening sections.</span>
-                        </label>
-                        <div class="settings-actions">
-                            <button id="reset-preferences" class="auth-secondary" type="button">Reset preferences</button>
-                        </div>
-                        <div id="settings-status" class="status-text"></div>
-                    </div>
-                </section>
-
-                <section id="help-panel" class="info-card">
-                    <p class="section-label">Help</p>
-                    <div class="help-stack">
-                        <p class="muted-copy">Use the sidebar to move through the core parts of the assistant.</p>
-                        <div class="help-list">
-                            <div class="help-item">New chat clears the current conversation so you can start fresh.</div>
-                            <div class="help-item">Search chats loads your saved sessions after you log in.</div>
-                            <div class="help-item">Mood check-in lets you save how you are feeling during a session.</div>
-                            <div class="help-item">Resources opens support links and emergency guidance.</div>
-                        </div>
-                        <div class="help-actions">
-                            <button id="help-start-chat" class="promo-button" type="button">Start new chat</button>
-                            <button id="help-open-resources" class="auth-secondary" type="button">Open resources</button>
-                        </div>
-                        <p class="muted-copy">If there is immediate danger or risk of self-harm, contact local emergency services or a trusted support person right away.</p>
-                    </div>
                 </section>
 
                 <section id="flagged-review-card" class="info-card hidden">

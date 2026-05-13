@@ -52,9 +52,9 @@ class ChatSessionSerializer(serializers.ModelSerializer):
         first_user_message = obj.messages.filter(role="user").order_by("created_at").first()
         if first_user_message and first_user_message.content:
             normalized = " ".join(first_user_message.content.strip().split())
-            if len(normalized) <= 42:
+            if len(normalized) <= 64:
                 return normalized
-            return f"{normalized[:37].rstrip()}....."
+            return f"{normalized[:59].rstrip()}....."
 
         return title or "Support chat"
 

@@ -69,3 +69,21 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class UserLoginSerializer(serializers.Serializer):
     identifier = serializers.CharField()
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "display_name", "role", "preferred_language"]
+        read_only_fields = ["id", "email", "role"]
+
+    def validate_username(self, value):
+        normalized = value.strip()
+        if not normalized:
+            raise serializers.ValidationError("Username is required.")
+        queryset = User.objects.filter(username__iexact=normalized)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return normalized

@@ -9,10 +9,14 @@ const chatStatus = document.getElementById("chat-status");
 const moodStatus = document.getElementById("mood-status");
 const resourcesStatus = document.getElementById("resources-status");
 const settingsStatus = document.getElementById("settings-status");
+const profileStatus = document.getElementById("profile-status");
+const historyStatus = document.getElementById("history-status");
+const searchStatus = document.getElementById("search-status");
 
 const resourcesList = document.getElementById("resources-list");
-const sessionList = document.getElementById("session-list");
-const dashboardStatus = document.getElementById("dashboard-status");
+const historySessionList = document.getElementById("history-session-list");
+const searchSessionList = document.getElementById("search-session-list");
+const sessionSearchInput = document.getElementById("session-search");
 const chatTranscript = document.getElementById("chat-transcript");
 const heroEmpty = document.getElementById("hero-empty");
 const flaggedList = document.getElementById("flagged-list");
@@ -26,6 +30,7 @@ const topbarUserLabel = document.getElementById("topbar-user-label");
 const topbarRoleBadge = document.getElementById("topbar-role-badge");
 
 const factSessionCount = document.getElementById("fact-session-count");
+const factSessionCountDrawer = document.getElementById("fact-session-count-drawer");
 const factResourceCount = document.getElementById("fact-resource-count");
 const factFlaggedCount = document.getElementById("fact-flagged-count");
 const flaggedStatCard = document.getElementById("flagged-stat-card");
@@ -42,6 +47,7 @@ const showMoodPanelButton = document.getElementById("show-mood-panel");
 const openSettingsButton = document.getElementById("open-settings");
 const openHelpButton = document.getElementById("open-help");
 const sidebarHomeButton = document.getElementById("sidebar-home");
+const toggleHistoryButton = document.getElementById("toggle-history");
 
 const openLoginButton = document.getElementById("open-login");
 const openLoginTopButton = document.getElementById("open-login-top");
@@ -50,8 +56,37 @@ const openAdminPanelButton = document.getElementById("open-admin-panel");
 const openDashboardButton = document.getElementById("open-dashboard");
 const openAuditTrailButton = document.getElementById("open-audit-trail");
 const openAccountButton = document.getElementById("open-account");
+const accountMenuWrap = document.getElementById("account-menu-wrap");
+const accountMenuButton = document.getElementById("account-menu-button");
+const accountMenu = document.getElementById("account-menu");
+const accountAvatar = document.getElementById("account-avatar");
+const accountMenuName = document.getElementById("account-menu-name");
+const accountMenuRole = document.getElementById("account-menu-role");
+const menuProfileButton = document.getElementById("menu-profile");
+const logoutMenuButton = document.getElementById("logout-menu");
 const closeAuthModalButton = document.getElementById("close-auth-modal");
 const authModal = document.getElementById("auth-modal");
+const searchModal = document.getElementById("search-modal");
+const closeSearchModalButton = document.getElementById("close-search-modal");
+const profileModal = document.getElementById("profile-modal");
+const closeProfileModalButton = document.getElementById("close-profile-modal");
+const cancelProfileButton = document.getElementById("cancel-profile");
+const profileForm = document.getElementById("profile-form");
+const profileAvatar = document.getElementById("profile-avatar");
+const profileDisplayName = document.getElementById("profile-display-name");
+const profileUsername = document.getElementById("profile-username");
+const settingsModal = document.getElementById("settings-modal");
+const closeSettingsModalButton = document.getElementById("close-settings-modal");
+const settingsTabs = Array.from(document.querySelectorAll(".settings-tab"));
+const settingsPanes = Array.from(document.querySelectorAll(".settings-pane"));
+const settingsModalTitle = document.getElementById("settings-modal-title");
+const settingsAccountType = document.getElementById("settings-account-type");
+const helpModal = document.getElementById("help-modal");
+const closeHelpModalButton = document.getElementById("close-help-modal");
+const helpCenterAction = document.getElementById("help-center-action");
+const helpResourcesAction = document.getElementById("help-resources-action");
+const helpShortcutsAction = document.getElementById("help-shortcuts-action");
+const helpDetail = document.getElementById("help-detail");
 const loginPanel = document.getElementById("login-panel");
 const registerPanel = document.getElementById("register-panel");
 const accountSummary = document.getElementById("account-summary");
@@ -68,16 +103,21 @@ const flaggedReviewCard = document.getElementById("flagged-review-card");
 
 const utilityDrawer = document.getElementById("utility-drawer");
 const closeDrawerButton = document.getElementById("close-drawer");
+const drawerKicker = document.getElementById("drawer-kicker");
+const drawerTitle = document.getElementById("drawer-title");
+const drawerCopy = document.getElementById("drawer-copy");
+const overviewPanel = document.getElementById("overview-panel");
 const moodPanel = document.getElementById("mood-panel");
 const resourcesPanel = document.getElementById("resources-panel");
-const settingsPanel = document.getElementById("settings-panel");
-const helpPanel = document.getElementById("help-panel");
+const resourceFilterButtons = Array.from(document.querySelectorAll(".resource-filter"));
 const textSizeSelect = document.getElementById("text-size-select");
 const reduceMotionToggle = document.getElementById("reduce-motion-toggle");
 const resetPreferencesButton = document.getElementById("reset-preferences");
 const helpStartChatButton = document.getElementById("help-start-chat");
 const helpOpenResourcesButton = document.getElementById("help-open-resources");
 const messageInput = document.getElementById("message");
+const stressLevelInput = document.getElementById("stress-level");
+const stressLevelValue = document.getElementById("stress-level-value");
 
 const sidebarButtons = [
     newChatButton,
@@ -95,6 +135,83 @@ let currentUser = null;
 let currentSessionId = null;
 let currentTranscriptMessages = [];
 let currentSessions = [];
+let currentSearchSessions = [];
+let sessionSearchTimeoutId = null;
+let guestChatUsage = null;
+let isHistoryCollapsed = false;
+let currentResourceCategory = "";
+const drawerContent = {
+    overview: {
+        section: overviewPanel,
+        button: null,
+        kicker: "Overview",
+        title: "Student support tools",
+        copy: "A quick snapshot of your saved chats, resources, and current support status.",
+    },
+    mood: {
+        section: moodPanel,
+        button: showMoodPanelButton,
+        kicker: "Mood check-in",
+        title: "Save a wellbeing check-in",
+        copy: "Capture mood, stress level, and notes for the active support session.",
+    },
+    resources: {
+        section: resourcesPanel,
+        button: loadResourcesButton,
+        kicker: "Resources",
+        title: "Student support resources",
+        copy: "Browse crisis, stress, anxiety, and general support guidance.",
+    },
+    flagged: {
+        section: flaggedReviewCard,
+        button: loadFlaggedButton,
+        kicker: "Flagged review",
+        title: "Support review queue",
+        copy: "Review high-risk conversations that need human attention.",
+    },
+};
+
+const fallbackResources = [
+    {
+        title: "Campus counselling or student wellness office",
+        description: "Book a confidential support session through your institution's counselling, wellness, or student affairs office.",
+        url: "",
+        category: "general",
+        is_emergency: false,
+    },
+    {
+        title: "South African Depression and Anxiety Group",
+        description: "SADAG offers mental health information, referrals, and helplines for anxiety, depression, trauma, and crisis support.",
+        url: "https://www.sadag.org/",
+        category: "crisis",
+        is_emergency: true,
+    },
+    {
+        title: "Exam stress reset",
+        description: "Pause for two minutes, drink water, write the next smallest task, and ask a lecturer, tutor, or classmate for practical help.",
+        url: "",
+        category: "stress",
+        is_emergency: false,
+    },
+    {
+        title: "Grounding for anxiety",
+        description: "Try the 5-4-3-2-1 grounding method: name five things you see, four you feel, three you hear, two you smell, and one you taste.",
+        url: "",
+        category: "anxiety",
+        is_emergency: false,
+    },
+];
+
+function resetSessionSearchResults(message = "Start typing to search your saved chats.") {
+    currentSearchSessions = [];
+    if (searchSessionList) {
+        searchSessionList.className = "session-list modal-session-list empty-state";
+        searchSessionList.textContent = currentUser ? message : "Log in to search saved chats.";
+    }
+    if (searchStatus) {
+        searchStatus.textContent = "";
+    }
+}
 
 function setChatStatus(message = "", isError = false) {
     if (!chatStatus) {
@@ -104,6 +221,25 @@ function setChatStatus(message = "", isError = false) {
     chatStatus.textContent = message;
     chatStatus.classList.toggle("hidden", !message);
     chatStatus.classList.toggle("error-text", Boolean(message && isError));
+}
+
+function setHistoryStatus(message = "", isError = false) {
+    if (!historyStatus) {
+        return;
+    }
+
+    historyStatus.textContent = message;
+    historyStatus.classList.toggle("hidden", !message || isHistoryCollapsed);
+    historyStatus.classList.toggle("error-text", Boolean(message && isError));
+}
+
+function updateGuestChatStatus() {
+    if (currentUser || !guestChatUsage) {
+        return;
+    }
+
+    const remaining = Number(guestChatUsage.tokens_remaining ?? 0);
+    setChatStatus(`Guest mode: about ${remaining} tokens left. Log in to save chats.`, false);
 }
 
 function isSupportUser(user = currentUser) {
@@ -194,6 +330,89 @@ function closeAuthPanel() {
     authModal?.classList.add("hidden");
 }
 
+function openSearchModal() {
+    if (!searchModal) {
+        return;
+    }
+
+    searchModal.classList.remove("hidden");
+    resetSessionSearchResults();
+    requestAnimationFrame(() => {
+        sessionSearchInput?.focus();
+        sessionSearchInput?.select();
+    });
+}
+
+function closeSearchModal() {
+    searchModal?.classList.add("hidden");
+}
+
+function closeAccountMenu() {
+    accountMenu?.classList.add("hidden");
+    accountMenuButton?.setAttribute("aria-expanded", "false");
+}
+
+function toggleAccountMenu() {
+    if (!accountMenu || !accountMenuButton) {
+        return;
+    }
+    const willOpen = accountMenu.classList.contains("hidden");
+    accountMenu.classList.toggle("hidden", !willOpen);
+    accountMenuButton.setAttribute("aria-expanded", String(willOpen));
+}
+
+function openProfileModal() {
+    if (!currentUser || !profileModal) {
+        openAuthPanel("login");
+        return;
+    }
+    closeAccountMenu();
+    profileDisplayName.value = currentUser.display_name || "";
+    profileUsername.value = currentUser.username || "";
+    if (profileStatus) {
+        profileStatus.textContent = "";
+    }
+    profileModal.classList.remove("hidden");
+}
+
+function closeProfileModal() {
+    profileModal?.classList.add("hidden");
+}
+
+function openSettingsModal(activeTab = "general") {
+    closeAccountMenu();
+    settingsModal?.classList.remove("hidden");
+    showSettingsTab(activeTab);
+}
+
+function closeSettingsModal() {
+    settingsModal?.classList.add("hidden");
+}
+
+function showSettingsTab(tabName = "general") {
+    settingsTabs.forEach((tab) => {
+        tab.classList.toggle("active", tab.dataset.settingsTab === tabName);
+    });
+    settingsPanes.forEach((pane) => {
+        pane.classList.toggle("hidden", pane.dataset.settingsPane !== tabName);
+    });
+    if (settingsModalTitle) {
+        settingsModalTitle.textContent = tabName.charAt(0).toUpperCase() + tabName.slice(1);
+    }
+}
+
+function openHelpModal(detail = "") {
+    closeAccountMenu();
+    if (helpDetail && detail) {
+        helpDetail.textContent = detail;
+    }
+    helpModal?.classList.remove("hidden");
+}
+
+function closeHelpModal() {
+    helpModal?.classList.add("hidden");
+}
+
 function openDrawer() {
     utilityDrawer?.classList.remove("hidden");
 }
@@ -202,25 +421,28 @@ function closeDrawer() {
     utilityDrawer?.classList.add("hidden");
 }
 
-function scrollSectionIntoView(section) {
-    if (!section) {
-        return;
-    }
-
-    requestAnimationFrame(() => {
-        section.scrollIntoView({
-            behavior: shouldReduceMotion() ? "auto" : "smooth",
-            block: "start",
-        });
-    });
-}
-
-function openDrawerSection(section, activeButton) {
+function openDrawerSection(viewKey = "overview") {
+    const content = drawerContent[viewKey] || drawerContent.overview;
     openDrawer();
-    if (activeButton) {
-        setActiveSidebarButton(activeButton);
+
+    Object.values(drawerContent).forEach((item) => {
+        item.section?.classList.toggle("hidden", item.section !== content.section);
+    });
+
+    if (drawerKicker) {
+        drawerKicker.textContent = content.kicker;
     }
-    scrollSectionIntoView(section);
+    if (drawerTitle) {
+        drawerTitle.textContent = content.title;
+    }
+    if (drawerCopy) {
+        drawerCopy.textContent = content.copy;
+    }
+    if (content.button) {
+        setActiveSidebarButton(content.button);
+    }
+
+    utilityDrawer?.setAttribute("data-view", viewKey);
 }
 
 function toggleChatEmpty(isEmpty) {
@@ -228,13 +450,24 @@ function toggleChatEmpty(isEmpty) {
     chatTranscript?.classList.toggle("hidden", isEmpty);
 }
 
+function getUserInitials(user) {
+    const label = (user?.display_name || user?.username || "Mental Health").trim();
+    const words = label.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) {
+        return `${words[0][0]}${words[1][0]}`.toUpperCase();
+    }
+    return label.slice(0, 2).toUpperCase();
+}
+
 function updateAuthChrome(user) {
     const isAuthenticated = Boolean(user);
     const accountName = user ? user.display_name || user.username : "Guest";
+    const initials = getUserInitials(user);
 
     guestActions?.classList.toggle("hidden", isAuthenticated);
     userActions?.classList.toggle("hidden", !isAuthenticated);
     promoCard?.classList.toggle("hidden", isAuthenticated);
+    accountMenuWrap?.classList.toggle("hidden", !isAuthenticated);
     promoGuestActions?.classList.toggle("hidden", isAuthenticated);
     openAdminPanelButton?.classList.toggle("hidden", !isSupportUser(user));
 
@@ -250,13 +483,28 @@ function updateAuthChrome(user) {
     if (topbarUserLabel) {
         topbarUserLabel.textContent = accountName;
     }
+    if (accountAvatar) {
+        accountAvatar.textContent = initials;
+    }
+    if (profileAvatar) {
+        profileAvatar.textContent = initials;
+    }
+    if (accountMenuName) {
+        accountMenuName.textContent = accountName;
+    }
+    if (accountMenuRole) {
+        accountMenuRole.textContent = user?.role ? user.role : "Student";
+    }
+    if (settingsAccountType) {
+        settingsAccountType.textContent = user?.role ? user.role : "Student";
+    }
     if (promoTitle) {
         promoTitle.textContent = isAuthenticated ? `Welcome, ${accountName}` : "Get support tailored to you";
     }
     if (promoCopy) {
         promoCopy.textContent = isAuthenticated
             ? "Your saved chats, mood check-ins, and support resources are ready when you are."
-            : "Log in to save chats, mood check-ins, and support resources.";
+            : "You can start chatting right away as a guest, or log in to save chats, mood check-ins, and support resources.";
     }
 }
 
@@ -293,7 +541,7 @@ function setActiveUser(user) {
     if (activeUserMeta) {
         activeUserMeta.textContent = user
             ? `${user.username} is signed in and ready to continue.`
-            : "Register or log in to begin.";
+            : "You can start chatting now, or log in to save your progress.";
     }
     if (chatTitle) {
         chatTitle.textContent = user
@@ -304,6 +552,12 @@ function setActiveUser(user) {
     updateAuthChrome(user);
     updateSupportChrome(user);
     updateOrderedFlow();
+
+    if (user) {
+        setChatStatus("");
+    } else {
+        updateGuestChatStatus();
+    }
 }
 
 function setSessionSummary(session) {
@@ -392,29 +646,107 @@ function renderTranscript(messages = []) {
     scrollTranscriptToBottom();
 }
 
-function renderSessions(sessions = []) {
-    const safeSessions = Array.isArray(sessions) ? sessions : [];
-    currentSessions = safeSessions;
-
-    if (factSessionCount) {
-        factSessionCount.textContent = safeSessions.length;
-    }
-
-    if (!safeSessions.length) {
-        sessionList.className = "session-list empty-state";
-        sessionList.textContent = currentUser
-            ? "No saved chats yet. Start a conversation and it will appear here."
-            : "Log in to browse saved chats.";
-        return;
-    }
-
-    sessionList.className = "session-list";
-    sessionList.innerHTML = safeSessions.map((session) => `
+function buildSessionMarkup(sessions = []) {
+    return sessions.map((session) => `
         <button type="button" data-session-id="${session.id}" class="session-item ${Number(session.id) === currentSessionId ? "active" : ""}">
             <strong>${escapeHtml(session.title || "Support chat")}</strong>
             <span>${escapeHtml(session.last_risk_level || "low")} risk</span>
         </button>
     `).join("");
+}
+
+function getSessionTimestamp(session) {
+    const value = session?.updated_at || session?.last_message_at || session?.created_at;
+    const timestamp = Date.parse(value);
+    return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function sortRecentSessions(sessions = []) {
+    return [...sessions].sort((first, second) => getSessionTimestamp(second) - getSessionTimestamp(first));
+}
+
+function setHistoryCollapsed(isCollapsed) {
+    isHistoryCollapsed = isCollapsed;
+    toggleHistoryButton?.setAttribute("aria-expanded", String(!isCollapsed));
+    toggleHistoryButton?.classList.toggle("collapsed", isCollapsed);
+    historySessionList?.classList.toggle("hidden", isCollapsed);
+    historyStatus?.classList.toggle("hidden", isCollapsed || !historyStatus.textContent);
+}
+
+function renderHistorySessions(sessions = []) {
+    const safeSessions = sortRecentSessions(Array.isArray(sessions) ? sessions : []);
+    currentSessions = safeSessions;
+
+    if (factSessionCount) {
+        factSessionCount.textContent = safeSessions.length;
+    }
+    if (factSessionCountDrawer) {
+        factSessionCountDrawer.textContent = safeSessions.length;
+    }
+
+    if (!safeSessions.length) {
+        if (!currentUser) {
+            historySessionList.className = "session-list history-session-list empty-state";
+            historySessionList.textContent = "Log in to browse saved chats.";
+        } else {
+            historySessionList.className = "session-list history-session-list empty-state";
+            historySessionList.textContent = "No saved chats yet. Start a conversation and it will appear here.";
+        }
+        setHistoryCollapsed(isHistoryCollapsed);
+        return;
+    }
+
+    historySessionList.className = "session-list history-session-list";
+    historySessionList.innerHTML = buildSessionMarkup(safeSessions);
+    setHistoryCollapsed(isHistoryCollapsed);
+}
+
+function renderSearchSessions(sessions = []) {
+    const safeSessions = Array.isArray(sessions) ? sessions : [];
+    const searchTerm = sessionSearchInput?.value.trim() || "";
+    currentSearchSessions = safeSessions;
+
+    if (!safeSessions.length) {
+        searchSessionList.className = "session-list modal-session-list empty-state";
+        if (!currentUser) {
+            searchSessionList.textContent = "Log in to search saved chats.";
+        } else if (!searchTerm) {
+            searchSessionList.textContent = "Start typing to search your saved chats.";
+        } else {
+            searchSessionList.textContent = `No chats found for "${searchTerm}".`;
+        }
+        return;
+    }
+
+    searchSessionList.className = "session-list modal-session-list";
+    searchSessionList.innerHTML = buildSessionMarkup(safeSessions);
+}
+
+async function loadHistorySessions() {
+    if (!currentUser) {
+        setHistoryStatus("");
+        renderHistorySessions([]);
+        return;
+    }
+
+    setHistoryStatus("Loading chats...");
+
+    try {
+        const response = await fetch("/api/chat/sessions/", {
+            credentials: "same-origin",
+        });
+
+        if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const sessions = await response.json();
+        setHistoryStatus("");
+        renderHistorySessions(sessions);
+    } catch (error) {
+        console.error("Load history error:", error);
+        setHistoryStatus("Could not load chats yet.", true);
+    }
 }
 
 function renderResources(resources = []) {
@@ -425,6 +757,13 @@ function renderResources(resources = []) {
     }
     resourcesList.innerHTML = "";
 
+    if (!safeResources.length) {
+        resourcesList.className = "resource-list empty-state";
+        resourcesList.textContent = "No resources found for this category.";
+        return;
+    }
+
+    resourcesList.className = "resource-list";
     safeResources.forEach((resource) => {
         const card = document.createElement("article");
         card.className = `resource-item ${resource.is_emergency ? "emergency" : ""}`;
@@ -462,9 +801,17 @@ function renderFlagged(flagged = []) {
 }
 
 async function postJson(url, payload = {}) {
+    return sendJson(url, payload, "POST");
+}
+
+async function patchJson(url, payload = {}) {
+    return sendJson(url, payload, "PATCH");
+}
+
+async function sendJson(url, payload = {}, method = "POST") {
     const csrfToken = getCsrfToken();
     const response = await fetch(url, {
-        method: "POST",
+        method,
         headers: {
             "Content-Type": "application/json",
             ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
@@ -494,26 +841,45 @@ async function loadCurrentUser() {
         }
 
         const payload = await response.json();
+        guestChatUsage = payload.guest_chat || null;
         if (payload.authenticated && payload.user) {
             setActiveUser(payload.user);
-            await loadSessions();
+            await loadHistorySessions();
+            return;
         }
+
+        setActiveUser(null);
     } catch (error) {
         console.error("Could not load current user:", error);
     }
 }
 
 async function loadSessions() {
+    const searchTerm = sessionSearchInput?.value.trim() || "";
+
     if (!currentUser) {
-        dashboardStatus.textContent = "Log in to view saved chats.";
-        renderSessions([]);
+        resetSessionSearchResults("Log in to search saved chats.");
+        if (searchStatus) {
+            searchStatus.textContent = "Log in to search saved chats.";
+        }
+        renderSearchSessions([]);
         return;
     }
 
-    dashboardStatus.textContent = "Loading sessions...";
+    if (!searchTerm) {
+        resetSessionSearchResults();
+        return;
+    }
+
+    if (searchStatus) {
+        searchStatus.textContent = "Searching chats...";
+    }
 
     try {
-        const response = await fetch("/api/chat/sessions/", {
+        const query = new URLSearchParams();
+        query.set("search", searchTerm);
+
+        const response = await fetch(`/api/chat/sessions/?${query.toString()}`, {
             credentials: "same-origin",
         });
 
@@ -522,19 +888,32 @@ async function loadSessions() {
         }
 
         const sessions = await response.json();
-        dashboardStatus.textContent = sessions.length ? "" : "No saved chats yet.";
-        renderSessions(sessions);
+        if (searchStatus) {
+            searchStatus.textContent = sessions.length ? "" : `No chats found for "${searchTerm}".`;
+        }
+        renderSearchSessions(sessions);
     } catch (error) {
         console.error("Load sessions error:", error);
-        dashboardStatus.textContent = "Could not load sessions yet.";
+        if (searchStatus) {
+            searchStatus.textContent = "Could not search chats yet.";
+        }
     }
 }
 
-async function loadResources() {
+async function loadResources(category = currentResourceCategory) {
+    currentResourceCategory = category || "";
+    resourceFilterButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.category === currentResourceCategory);
+    });
     resourcesStatus.textContent = "Loading resources...";
 
     try {
-        const response = await fetch("/api/recommendations/", {
+        const query = new URLSearchParams();
+        if (currentResourceCategory) {
+            query.set("category", currentResourceCategory);
+        }
+        const url = query.toString() ? `/api/recommendations/?${query.toString()}` : "/api/recommendations/";
+        const response = await fetch(url, {
             credentials: "same-origin",
         });
 
@@ -542,12 +921,25 @@ async function loadResources() {
             throw new Error(`Request failed with status ${response.status}`);
         }
 
-        const resources = await response.json();
-        resourcesStatus.textContent = resources.length ? "" : "No resources have been added yet.";
+        let resources = await response.json();
+        if (!resources.length) {
+            resources = fallbackResources.filter((resource) => (
+                !currentResourceCategory || resource.category === currentResourceCategory
+            ));
+            resourcesStatus.textContent = resources.length
+                ? "Showing built-in demo resources. Seed the database to manage this list."
+                : "No resources found for this category.";
+        } else {
+            resourcesStatus.textContent = "";
+        }
         renderResources(resources);
     } catch (error) {
         console.error("Load resources error:", error);
-        resourcesStatus.textContent = "Could not load resources yet.";
+        const resources = fallbackResources.filter((resource) => (
+            !currentResourceCategory || resource.category === currentResourceCategory
+        ));
+        resourcesStatus.textContent = "Could not reach the resource API, so built-in demo resources are shown.";
+        renderResources(resources);
     }
 }
 
@@ -579,36 +971,40 @@ async function loadFlaggedMessages() {
 }
 
 function showMoodSection() {
-    openDrawerSection(moodPanel, showMoodPanelButton);
+    openDrawerSection("mood");
     if (!currentUser) {
         moodStatus.textContent = "Log in to save a mood check-in.";
+    } else if (moodStatus) {
+        moodStatus.textContent = currentSessionId
+            ? "This check-in will attach to the current chat."
+            : "This check-in will save to your account.";
     }
 }
 
 async function showSessionHistory() {
     setActiveSidebarButton(loadSessionsButton);
-    await loadSessions();
+    openSearchModal();
 }
 
 async function showResourcesSection() {
-    openDrawerSection(resourcesPanel, loadResourcesButton);
+    openDrawerSection("resources");
     await loadResources();
 }
 
 async function showFlaggedSection() {
-    openDrawerSection(flaggedReviewCard, loadFlaggedButton);
+    openDrawerSection("flagged");
     await loadFlaggedMessages();
 }
 
 function showSettingsSection() {
-    openDrawerSection(settingsPanel, openSettingsButton);
+    openSettingsModal("general");
     if (settingsStatus) {
         settingsStatus.textContent = "";
     }
 }
 
 function showHelpSection() {
-    openDrawerSection(helpPanel, openHelpButton);
+    openHelpModal();
 }
 
 function getDefaultPreferences() {
@@ -720,9 +1116,10 @@ loginForm.addEventListener("submit", async (event) => {
     try {
         const data = await postJson("/api/users/login/", payload);
         loginStatus.textContent = "Login successful.";
+        guestChatUsage = null;
         setActiveUser(data.user);
         closeAuthPanel();
-        await loadSessions();
+        await loadHistorySessions();
     } catch (error) {
         console.error("Login error:", error);
         loginStatus.textContent = error.message || "Could not log in yet.";
@@ -732,12 +1129,6 @@ loginForm.addEventListener("submit", async (event) => {
 chatForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const messageText = messageInput.value.trim();
-
-    if (!currentUser) {
-        setChatStatus("Please log in before chatting.", true);
-        openAuthPanel("login");
-        return;
-    }
 
     if (!messageText) {
         setChatStatus("Type a message first.", true);
@@ -784,7 +1175,11 @@ chatForm.addEventListener("submit", async (event) => {
         });
 
         if (!response.ok) {
-            throw new Error(`Request failed with status ${response.status}`);
+            const errorPayload = await response.json().catch(() => ({}));
+            if (errorPayload.guest_chat) {
+                guestChatUsage = errorPayload.guest_chat;
+            }
+            throw new Error(errorPayload.detail || `Request failed with status ${response.status}`);
         }
         if (!response.body) {
             throw new Error("Streaming is not available because the response body is missing.");
@@ -853,15 +1248,20 @@ chatForm.addEventListener("submit", async (event) => {
 
         setSessionSummary(finalData.session);
         setSafetySummary(finalData.assessment);
+        guestChatUsage = finalData.guest_chat || guestChatUsage;
         renderTranscript(Array.isArray(finalData.session.messages) ? finalData.session.messages : []);
         renderResources(finalData.resources || []);
-        if (finalData.response_source && finalData.response_source !== "ai_service") {
+        if (!currentUser && guestChatUsage) {
+            updateGuestChatStatus();
+        } else if (finalData.response_source && finalData.response_source !== "ai_service") {
             setChatStatus("Fallback support guidance was used for this reply.", false);
         } else {
             setChatStatus("");
         }
 
-        await loadSessions();
+        if (currentUser) {
+            await loadHistorySessions();
+        }
     } catch (error) {
         console.error("Chat error:", error);
         setChatStatus(error.message || "Could not send message yet.", true);
@@ -892,7 +1292,7 @@ moodForm.addEventListener("submit", async (event) => {
     const payload = {
         mood: document.getElementById("mood").value,
         notes: document.getElementById("mood-notes").value,
-        stress_level: document.getElementById("stress-level").value,
+        stress_level: Number(document.getElementById("stress-level").value),
     };
 
     if (currentSessionId) {
@@ -901,51 +1301,107 @@ moodForm.addEventListener("submit", async (event) => {
 
     try {
         await postJson("/api/chat/mood-checkins/", payload);
-        moodStatus.textContent = "Mood check-in saved.";
+        moodStatus.textContent = currentSessionId
+            ? "Mood check-in saved to this chat session."
+            : "Mood check-in saved to your account.";
         moodForm.reset();
         document.getElementById("stress-level").value = "3";
+        if (stressLevelValue) {
+            stressLevelValue.textContent = "3";
+        }
     } catch (error) {
         console.error("Mood check-in error:", error);
         moodStatus.textContent = error.message || "Could not save the mood check-in yet.";
     }
 });
 
-sessionList.addEventListener("click", async (event) => {
-    const button = event.target.closest(".session-item");
-    if (!button || !currentUser) {
+function updateSessionCollections(session) {
+    if (!session) {
         return;
     }
 
-    const sessionId = Number(button.dataset.sessionId);
-    if (!sessionId) {
-        return;
-    }
+    const mergeSession = (sessions) => {
+        const withoutSession = sessions.filter((item) => Number(item.id) !== Number(session.id));
+        return sortRecentSessions([session, ...withoutSession]);
+    };
 
-    try {
-        dashboardStatus.textContent = "Opening saved chat...";
-        const response = await fetch(`/api/chat/sessions/${sessionId}/`, {
-            credentials: "same-origin",
-        });
+    const updatedHistorySessions = mergeSession(currentSessions);
+    const updatedSearchSessions = currentSearchSessions.length ? mergeSession(currentSearchSessions) : [];
+    renderHistorySessions(updatedHistorySessions);
+    renderSearchSessions(updatedSearchSessions);
+}
 
-        if (!response.ok) {
-            throw new Error(`Request failed with status ${response.status}`);
+function handleSessionListClick(listElement, shouldCloseSearch = false) {
+    listElement?.addEventListener("click", async (event) => {
+        const button = event.target.closest(".session-item");
+        if (!button || !currentUser) {
+            return;
         }
 
-        const session = await response.json();
-        dashboardStatus.textContent = "";
-        setSessionSummary(session);
-        renderTranscript(Array.isArray(session.messages) ? session.messages : []);
-        renderSessions(currentSessions.map((item) => (Number(item.id) === sessionId ? session : item)));
-        setActiveSidebarButton(loadSessionsButton);
-    } catch (error) {
-        console.error("Open session error:", error);
-        dashboardStatus.textContent = error.message || "Could not open that saved chat yet.";
-    }
+        const sessionId = Number(button.dataset.sessionId);
+        if (!sessionId) {
+            return;
+        }
+
+        try {
+            if (shouldCloseSearch) {
+                if (searchStatus) {
+                    searchStatus.textContent = "Opening saved chat...";
+                }
+            } else if (historyStatus) {
+                setHistoryStatus("Opening saved chat...");
+            }
+
+            const response = await fetch(`/api/chat/sessions/${sessionId}/`, {
+                credentials: "same-origin",
+            });
+
+            if (!response.ok) {
+                throw new Error(`Request failed with status ${response.status}`);
+            }
+
+            const session = await response.json();
+            if (shouldCloseSearch) {
+                if (searchStatus) {
+                    searchStatus.textContent = "";
+                }
+            } else if (historyStatus) {
+                setHistoryStatus("");
+            }
+            setSessionSummary(session);
+            renderTranscript(Array.isArray(session.messages) ? session.messages : []);
+            updateSessionCollections(session);
+            setActiveSidebarButton(loadSessionsButton);
+            if (shouldCloseSearch) {
+                closeSearchModal();
+            }
+        } catch (error) {
+            console.error("Open session error:", error);
+            const message = error.message || "Could not open that saved chat yet.";
+            if (shouldCloseSearch) {
+                if (searchStatus) {
+                    searchStatus.textContent = message;
+                }
+            } else if (historyStatus) {
+                setHistoryStatus(message, true);
+            }
+        }
+    });
+}
+
+handleSessionListClick(historySessionList, false);
+handleSessionListClick(searchSessionList, true);
+toggleHistoryButton?.addEventListener("click", () => {
+    setHistoryCollapsed(!isHistoryCollapsed);
 });
 
 function handleNewChat(statusMessage = "New chat ready.") {
     closeDrawer();
     setActiveSidebarButton(newChatButton);
+    if (sessionSearchInput) {
+        sessionSearchInput.value = "";
+    }
+    resetSessionSearchResults();
     resetWorkspace(statusMessage);
 }
 
@@ -953,6 +1409,21 @@ newChatButton.addEventListener("click", () => handleNewChat("New chat ready."));
 sidebarHomeButton?.addEventListener("click", () => handleNewChat(""));
 
 loadSessionsButton.addEventListener("click", showSessionHistory);
+sessionSearchInput?.addEventListener("input", () => {
+    if (sessionSearchTimeoutId) {
+        clearTimeout(sessionSearchTimeoutId);
+    }
+
+    sessionSearchTimeoutId = window.setTimeout(() => {
+        loadSessions();
+    }, 250);
+});
+sessionSearchInput?.addEventListener("search", () => {
+    if (sessionSearchTimeoutId) {
+        clearTimeout(sessionSearchTimeoutId);
+    }
+    loadSessions();
+});
 loadResourcesButton.addEventListener("click", showResourcesSection);
 loadFlaggedButton.addEventListener("click", showFlaggedSection);
 showMoodPanelButton.addEventListener("click", showMoodSection);
@@ -974,11 +1445,57 @@ openAuditTrailButton?.addEventListener("click", () => {
     window.location.href = "/admin-support/#audit-section";
 });
 openAccountButton?.addEventListener("click", () => openAuthPanel("account"));
+accountMenuButton?.addEventListener("click", toggleAccountMenu);
+menuProfileButton?.addEventListener("click", openProfileModal);
 closeAuthModalButton.addEventListener("click", closeAuthPanel);
+closeSearchModalButton?.addEventListener("click", closeSearchModal);
+closeProfileModalButton?.addEventListener("click", closeProfileModal);
+cancelProfileButton?.addEventListener("click", closeProfileModal);
+closeSettingsModalButton?.addEventListener("click", closeSettingsModal);
+closeHelpModalButton?.addEventListener("click", closeHelpModal);
 closeDrawerButton.addEventListener("click", closeDrawer);
+
+profileForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!currentUser) {
+        openAuthPanel("login");
+        return;
+    }
+    if (profileStatus) {
+        profileStatus.textContent = "Saving profile...";
+    }
+    try {
+        const updatedUser = await patchJson("/api/users/profile/", {
+            display_name: profileDisplayName.value.trim(),
+            username: profileUsername.value.trim(),
+        });
+        setActiveUser(updatedUser);
+        if (profileStatus) {
+            profileStatus.textContent = "Profile saved.";
+        }
+        window.setTimeout(closeProfileModal, 450);
+    } catch (error) {
+        if (profileStatus) {
+            profileStatus.textContent = error.message || "Could not save profile yet.";
+        }
+    }
+});
 
 textSizeSelect?.addEventListener("change", () => savePreferences());
 reduceMotionToggle?.addEventListener("change", () => savePreferences());
+settingsTabs.forEach((tab) => {
+    tab.addEventListener("click", () => showSettingsTab(tab.dataset.settingsTab || "general"));
+});
+stressLevelInput?.addEventListener("input", () => {
+    if (stressLevelValue) {
+        stressLevelValue.textContent = stressLevelInput.value;
+    }
+});
+resourceFilterButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+        loadResources(button.dataset.category || "");
+    });
+});
 resetPreferencesButton?.addEventListener("click", () => {
     const defaults = getDefaultPreferences();
     saveStoredPreferences(defaults);
@@ -986,27 +1503,72 @@ resetPreferencesButton?.addEventListener("click", () => {
 });
 helpStartChatButton?.addEventListener("click", () => handleNewChat("New chat ready."));
 helpOpenResourcesButton?.addEventListener("click", showResourcesSection);
+helpResourcesAction?.addEventListener("click", () => {
+    closeHelpModal();
+    showResourcesSection();
+});
+helpCenterAction?.addEventListener("click", () => {
+    openHelpModal("Use New chat for a fresh conversation, Search chats for saved sessions, Mood check-in for wellbeing tracking, and Resources for support links.");
+});
+helpShortcutsAction?.addEventListener("click", () => {
+    openHelpModal("Demo flow: register or log in, send a message, open Mood check-in, save a check-in, filter Resources, then reload a saved chat from Recent chats.");
+});
 
 async function handleLogout() {
     try {
         await postJson("/api/users/logout/");
     } finally {
         setActiveUser(null);
+        guestChatUsage = null;
+        if (sessionSearchInput) {
+            sessionSearchInput.value = "";
+        }
         currentSessions = [];
-        renderSessions([]);
+        currentSearchSessions = [];
+        resetSessionSearchResults("Log in to search saved chats.");
+        renderHistorySessions([]);
         resetWorkspace("You have logged out.");
         setActiveSidebarButton(newChatButton);
         closeAuthPanel();
         closeDrawer();
+        closeAccountMenu();
+        closeProfileModal();
+        closeSettingsModal();
+        closeHelpModal();
     }
 }
 
 logoutButton?.addEventListener("click", handleLogout);
 logoutTopButton?.addEventListener("click", handleLogout);
+logoutMenuButton?.addEventListener("click", handleLogout);
 
 authModal?.addEventListener("click", (event) => {
     if (event.target === authModal) {
         closeAuthPanel();
+    }
+});
+
+searchModal?.addEventListener("click", (event) => {
+    if (event.target === searchModal) {
+        closeSearchModal();
+    }
+});
+
+profileModal?.addEventListener("click", (event) => {
+    if (event.target === profileModal) {
+        closeProfileModal();
+    }
+});
+
+settingsModal?.addEventListener("click", (event) => {
+    if (event.target === settingsModal) {
+        closeSettingsModal();
+    }
+});
+
+helpModal?.addEventListener("click", (event) => {
+    if (event.target === helpModal) {
+        closeHelpModal();
     }
 });
 
@@ -1016,12 +1578,31 @@ utilityDrawer?.addEventListener("click", (event) => {
     }
 });
 
+document.addEventListener("click", (event) => {
+    if (!accountMenuWrap?.contains(event.target)) {
+        closeAccountMenu();
+    }
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+        closeSearchModal();
+        closeProfileModal();
+        closeSettingsModal();
+        closeHelpModal();
+        closeAccountMenu();
+    }
+});
+
 async function initializeApp() {
     applyPreferences(loadStoredPreferences());
     setActiveUser(null);
     setSessionSummary(null);
     setSafetySummary(null);
     setChatStatus("");
+    if (sessionSearchInput) {
+        sessionSearchInput.value = "";
+    }
     toggleChatEmpty(true);
     setActiveSidebarButton(newChatButton);
     await loadCurrentUser();
