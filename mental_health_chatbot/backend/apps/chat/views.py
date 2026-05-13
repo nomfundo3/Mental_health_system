@@ -1,5 +1,6 @@
 from django.conf import settings
 from rest_framework import generics, status
+from rest_framework.exceptions import NotFound
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -12,9 +13,10 @@ from apps.recommendations.models import ResourceRecommendation
 from services.response_service import stream_support_response
 from services.sentiment_service import assess_message
 
-from .models import ChatMessage, ChatSession, MoodCheckIn
+from .models import ChatMessage, ChatSession, ChatSessionFeedback, MoodCheckIn
 from .serializers import (
     ChatRequestSerializer,
+    ChatSessionFeedbackSerializer,
     ChatSessionSerializer,
     MoodCheckInSerializer,
 )
@@ -39,11 +41,30 @@ def _can_access_session(user, session):
     )
 
 
+def _can_access_session_from_request(request, user, session):
+    return bool(
+        session
+        and (
+            (user and user.is_authenticated and _can_access_session(user, session))
+            or _can_access_guest_session(request, session)
+        )
+    )
+
+
 def _estimate_token_count(text: str) -> int:
     normalized = " ".join((text or "").split())
     if not normalized:
         return 0
     return max(1, len(normalized) // 4)
+
+
+def _resource_audience_for_user(user) -> list[str]:
+    if user and user.is_authenticated:
+        role = getattr(user, "role", "student")
+        if role in {"admin", "support"}:
+            return ["all", "support"]
+        return ["all", "student"]
+    return ["all", "student"]
 
 
 def _get_guest_session_ids(request) -> set[int]:
@@ -120,19 +141,65 @@ class ChatSessionDetailView(generics.RetrieveAPIView):
         return queryset.filter(user=self.request.user)
 
 
-class MoodCheckInCreateView(generics.CreateAPIView):
-    queryset = MoodCheckIn.objects.all()
+class MoodCheckInCreateView(generics.ListCreateAPIView):
     serializer_class = MoodCheckInSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        queryset = MoodCheckIn.objects.filter(user=self.request.user).select_related("session").order_by("-created_at")
+        session_id = self.request.query_params.get("session_id", "").strip()
+        if session_id.isdigit():
+            queryset = queryset.filter(session_id=int(session_id))
+        return queryset
+
     def perform_create(self, serializer):
+        if not getattr(self.request.user, "save_mood_checkins", True):
+            raise PermissionDenied("Mood check-ins are currently disabled in your settings.")
+
         session_id = serializer.validated_data.pop("session_id", None)
         session = None
         if session_id:
             session = ChatSession.objects.filter(id=session_id).first()
-            if session and not _can_access_session(self.request.user, session):
+            if session and not _can_access_session_from_request(self.request, self.request.user, session):
                 raise PermissionDenied("You cannot attach a mood check-in to this chat session.")
         serializer.save(user=self.request.user, session=session)
+
+
+class ChatSessionFeedbackUpsertView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = ChatSessionFeedbackSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        session_id = serializer.validated_data["session_id"]
+        session = ChatSession.objects.filter(id=session_id).first()
+        if session is None:
+            raise NotFound("Chat session not found.")
+
+        user = request.user
+        is_authenticated = bool(user and user.is_authenticated)
+
+        if is_authenticated:
+            if not _can_access_session_from_request(request, user, session):
+                raise PermissionDenied("You cannot leave feedback for this chat session.")
+        elif not _can_access_guest_session(request, session):
+            raise PermissionDenied("You cannot leave feedback for this guest chat session.")
+
+        feedback, created = ChatSessionFeedback.objects.update_or_create(
+            session=session,
+            defaults={
+                "user": user if is_authenticated else None,
+                "rating": serializer.validated_data["rating"],
+                "comments": serializer.validated_data.get("comments", ""),
+            },
+        )
+
+        response_serializer = ChatSessionFeedbackSerializer(feedback)
+        return Response(
+            response_serializer.data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
 
 class ChatConversationView(APIView):
@@ -149,10 +216,9 @@ class ChatConversationView(APIView):
 
         session = ChatSession.objects.filter(id=session_id).first() if session_id else None
         if session is not None:
-            if is_authenticated:
-                if not _can_access_session(user, session):
+            if not _can_access_session_from_request(request, user, session):
+                if is_authenticated:
                     raise PermissionDenied("You cannot continue a chat session that does not belong to you.")
-            elif not _can_access_guest_session(request, session):
                 raise PermissionDenied("You cannot continue a guest chat session that does not belong to you.")
 
         if not is_authenticated:
@@ -167,9 +233,11 @@ class ChatConversationView(APIView):
                     status=status.HTTP_429_TOO_MANY_REQUESTS,
                 )
 
+        persist_chat_history = bool(is_authenticated and getattr(user, "save_chat_history", True))
+
         if session is None:
-            session = ChatSession.objects.create(user=user if is_authenticated else None)
-            if not is_authenticated:
+            session = ChatSession.objects.create(user=user if persist_chat_history else None)
+            if not persist_chat_history:
                 _store_guest_session_id(request, session.id)
 
         assessment = assess_message(message)
@@ -192,6 +260,7 @@ class ChatConversationView(APIView):
             ResourceRecommendation.objects.filter(
                 category__in=assessment["resource_categories"],
                 is_active=True,
+                audience__in=_resource_audience_for_user(user),
             )
             .order_by("-is_emergency", "-priority", "title")
             .values(

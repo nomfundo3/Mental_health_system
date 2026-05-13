@@ -96,3 +96,34 @@ class UserApiTests(TestCase):
     def test_logout_requires_authentication(self):
         response = self.client.post("/api/users/logout/", {}, format="json")
         self.assertEqual(response.status_code, 403)
+
+    def test_profile_can_update_account_settings(self):
+        user = User.objects.create_user(
+            username="student1",
+            email="student1@example.com",
+            password="StrongPass123!",
+            consent_accepted=True,
+        )
+        self.client.force_authenticate(user=user)
+
+        response = self.client.patch(
+            "/api/users/profile/",
+            {
+                "preferred_language": "af",
+                "save_chat_history": False,
+                "save_mood_checkins": False,
+                "auto_open_resources": False,
+                "simplified_help_mode": True,
+                "emergency_contact_opt_in": True,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        user.refresh_from_db()
+        self.assertEqual(user.preferred_language, "af")
+        self.assertFalse(user.save_chat_history)
+        self.assertFalse(user.save_mood_checkins)
+        self.assertFalse(user.auto_open_resources)
+        self.assertTrue(user.simplified_help_mode)
+        self.assertTrue(user.emergency_contact_opt_in)

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ChatMessage, ChatSession, MoodCheckIn
+from .models import ChatMessage, ChatSession, ChatSessionFeedback, MoodCheckIn
 
 
 @admin.register(ChatSession)
@@ -22,3 +22,10 @@ class MoodCheckInAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "mood", "stress_level", "created_at")
     list_filter = ("mood", "stress_level")
     search_fields = ("user__username", "notes")
+
+
+@admin.register(ChatSessionFeedback)
+class ChatSessionFeedbackAdmin(admin.ModelAdmin):
+    list_display = ("id", "session", "user", "rating", "updated_at")
+    list_filter = ("rating",)
+    search_fields = ("session__title", "user__username", "comments")

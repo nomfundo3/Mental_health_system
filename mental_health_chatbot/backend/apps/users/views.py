@@ -10,6 +10,10 @@ from .models import User
 from .serializers import UserLoginSerializer, UserProfileSerializer, UserRegistrationSerializer
 
 
+def _user_payload(user):
+    return UserProfileSerializer(user).data
+
+
 class UserRegistrationView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
@@ -23,14 +27,7 @@ class UserRegistrationView(generics.CreateAPIView):
         return Response(
             {
                 "message": "Registration successful.",
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                    "display_name": user.display_name,
-                    "role": user.role,
-                    "preferred_language": user.preferred_language,
-                },
+                "user": _user_payload(user),
             },
             status=status.HTTP_201_CREATED,
         )
@@ -68,14 +65,7 @@ class UserLoginView(APIView):
         return Response(
             {
                 "message": "Login successful.",
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                    "display_name": user.display_name,
-                    "role": user.role,
-                    "preferred_language": user.preferred_language,
-                },
+                "user": _user_payload(user),
             },
             status=status.HTTP_200_OK,
         )
@@ -103,14 +93,7 @@ class CurrentUserView(APIView):
         return Response(
             {
                 "authenticated": True,
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                    "display_name": user.display_name,
-                    "role": user.role,
-                    "preferred_language": user.preferred_language,
-                },
+                "user": _user_payload(user),
                 "guest_chat": guest_chat,
             },
             status=status.HTTP_200_OK,

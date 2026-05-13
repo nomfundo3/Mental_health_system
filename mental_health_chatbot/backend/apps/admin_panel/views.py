@@ -12,7 +12,7 @@ from apps.chat.models import ChatMessage
 from apps.chat.models import ChatSession, MoodCheckIn
 from apps.recommendations.models import ResourceRecommendation
 
-from .permissions import IsSupportOrAdmin
+from .permissions import IsSuperuserOnly, IsSupportOrAdmin
 
 User = get_user_model()
 
@@ -40,7 +40,7 @@ class FlaggedMessagesView(APIView):
 
 
 class AuditLogsView(APIView):
-    permission_classes = [IsAuthenticated, IsSupportOrAdmin]
+    permission_classes = [IsAuthenticated, IsSuperuserOnly]
 
     def get(self, request, *args, **kwargs):
         logs = ChatMessage.objects.select_related(
@@ -73,23 +73,18 @@ class AuditLogsView(APIView):
 
 @login_required
 def audit_logs_page(request):
-    if not (request.user.is_staff or getattr(request.user, "role", "") in {"admin", "support"}):
+    if not request.user.is_superuser:
         raise PermissionDenied("You do not have permission to access audit logs.")
-
-    logs = ChatMessage.objects.select_related(
-        "session",
-        "session__user"
-    ).order_by("-created_at")[:50]
 
     return render(
         request,
         "admin_panel/audit_logs.html",
-        {"logs": logs}
+        {"active_page": "audit"}
     )
 
 
 class AdminDashboardView(APIView):
-    permission_classes = [IsAuthenticated, IsSupportOrAdmin]
+    permission_classes = [IsAuthenticated, IsSuperuserOnly]
 
     def get(self, request, *args, **kwargs):
         session_statuses = {

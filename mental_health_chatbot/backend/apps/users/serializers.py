@@ -74,8 +74,21 @@ class UserLoginSerializer(serializers.Serializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email", "display_name", "role", "preferred_language"]
-        read_only_fields = ["id", "email", "role"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "display_name",
+            "role",
+            "is_superuser",
+            "preferred_language",
+            "emergency_contact_opt_in",
+            "save_chat_history",
+            "save_mood_checkins",
+            "auto_open_resources",
+            "simplified_help_mode",
+        ]
+        read_only_fields = ["id", "email", "role", "is_superuser"]
 
     def validate_username(self, value):
         normalized = value.strip()
