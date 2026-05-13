@@ -29,7 +29,11 @@ def get_env_list(name: str, default: str = "") -> list[str]:
 
 SECRET_KEY = get_env("SECRET_KEY")
 DEBUG = get_env_bool("DEBUG", False)
-ALLOWED_HOSTS = get_env_list("ALLOWED_HOSTS")
+
+ALLOWED_HOSTS = get_env_list(
+    "ALLOWED_HOSTS",
+    "localhost,127.0.0.1,mental-health-system-fc5k.onrender.com",
+)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -109,9 +113,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
 
 CORS_ALLOW_ALL_ORIGINS = get_env_bool("CORS_ALLOW_ALL_ORIGINS", True)
+
 CSRF_TRUSTED_ORIGINS = get_env_list(
     "CSRF_TRUSTED_ORIGINS",
-    "http://localhost:8000,http://127.0.0.1:8000",
+    "http://localhost:8000,http://127.0.0.1:8000,https://mental-health-system-fc5k.onrender.com",
 )
 
 REST_FRAMEWORK = {
