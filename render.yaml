@@ -7,7 +7,8 @@ services:
     buildCommand: >
       pip install -r requirements.txt &&
       python manage.py collectstatic --noinput &&
-      python manage.py migrate
+      python manage.py migrate &&
+      python manage.py create_admin_user
 
     startCommand: gunicorn config.wsgi:application
 
@@ -66,6 +67,18 @@ services:
 
       - key: LLM_MODEL
         value: openrouter/free
+
+      - key: ADMIN_USERNAME
+        value: mbalenhle
+
+      - key: ADMIN_EMAIL
+        value: mbalenhle@epftechhubic.org
+
+      - key: ADMIN_DISPLAY_NAME
+        value: Mbalenhle
+
+      - key: ADMIN_PASSWORD
+        sync: false
 
 databases:
   - name: mental-health-db
