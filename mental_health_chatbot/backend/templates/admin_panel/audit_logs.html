@@ -1,116 +1,35 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Audit Logs Timeline</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 30px;
-            background: #f5f6fa;
-        }
+{% extends "admin_panel/base_superuser.html" %}
 
-        h1 {
-            margin-bottom: 30px;
-        }
+{% block title %}Audit Trail{% endblock %}
 
-        .timeline {
-            border-left: 4px solid #333;
-            padding-left: 25px;
-        }
-
-        .log-card {
-            background: white;
-            margin-bottom: 20px;
-            padding: 18px;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-            position: relative;
-        }
-
-        .log-card::before {
-            content: "";
-            width: 14px;
-            height: 14px;
-            background: #333;
-            border-radius: 50%;
-            position: absolute;
-            left: -34px;
-            top: 22px;
-        }
-
-        .meta {
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 10px;
-        }
-
-        .message {
-            margin-top: 10px;
-            line-height: 1.5;
-        }
-
-        .badge {
-            padding: 4px 8px;
-            border-radius: 5px;
-            font-size: 13px;
-            font-weight: bold;
-        }
-
-        .high {
-            background: #ffcccc;
-        }
-
-        .medium {
-            background: #fff3cd;
-        }
-
-        .low {
-            background: #d4edda;
-        }
-    </style>
-</head>
-<body>
-
-<h1>Audit Logs Timeline</h1>
-
-<div class="timeline">
-    {% for log in logs %}
-        <div class="log-card">
-            <div class="meta">
-                <strong>{{ log.created_at }}</strong>
-                |
-                User:
-                {% if log.session.user %}
-                    {{ log.session.user.username }}
-                {% else %}
-                    Anonymous
-                {% endif %}
-                |
-                Role: {{ log.role }}
-                |
-                Source: {{ log.source }}
-            </div>
-
-            <div>
-                Risk:
-                <span class="badge {{ log.risk_level }}">
-                    {{ log.risk_level }}
-                </span>
-
-                Sentiment:
-                <span class="badge">
-                    {{ log.sentiment }}
-                </span>
-            </div>
-
-            <div class="message">
-                {{ log.content }}
-            </div>
+{% block content %}
+    <header class="admin-topbar">
+        <div>
+            <p class="eyebrow">Superuser Oversight</p>
+            <h1>Audit Trail</h1>
+            <p class="lead">Review recorded system activity in its own dedicated page without leaving the superuser navigation shell.</p>
         </div>
-    {% empty %}
-        <p>No audit logs found.</p>
-    {% endfor %}
-</div>
+        <div class="topbar-actions">
+            <a class="secondary-link" href="/admin-support/">Open dashboard</a>
+            <button id="refresh-audit-logs" class="primary-button" type="button">Refresh logs</button>
+        </div>
+    </header>
 
-</body>
-</html>
+    <section class="audit-page-grid">
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="section-label">Audit stream</p>
+                    <h2>Recent recorded activity</h2>
+                </div>
+            </div>
+            <div id="audit-log-list" class="audit-list">
+                <div class="empty-card">Loading audit logs.</div>
+            </div>
+        </article>
+    </section>
+{% endblock %}
+
+{% block scripts %}
+    <script src="/static/js/admin_audit.js"></script>
+{% endblock %}

@@ -5,7 +5,7 @@ from rest_framework.test import APIClient
 from unittest.mock import patch
 import json
 
-from apps.chat.models import ChatMessage, ChatSession, MoodCheckIn
+from apps.chat.models import ChatMessage, ChatSession, ChatSessionFeedback, MoodCheckIn
 from apps.recommendations.models import ResourceRecommendation
 from services.llm_service import LlmServiceError
 
@@ -102,6 +102,105 @@ class ChatWorkflowTests(TestCase):
         self.assertEqual(check_in.user, self.user)
         self.assertEqual(check_in.session, session)
 
+    def test_mood_checkin_rejects_stress_level_outside_ui_range(self):
+        session = ChatSession.objects.create(user=self.user)
+        response = self.client.post(
+            "/api/chat/mood-checkins/",
+            {
+                "session_id": session.id,
+                "mood": "anxious",
+                "stress_level": 8,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["stress_level"][0], "Stress level must be between 1 and 5.")
+
+    def test_mood_checkin_list_returns_only_current_users_history(self):
+        own_session = ChatSession.objects.create(user=self.user, title="Own Session")
+        MoodCheckIn.objects.create(
+            user=self.user,
+            session=own_session,
+            mood="stressed",
+            notes="Own note",
+            stress_level=4,
+        )
+
+        other_user = User.objects.create_user(
+            username="student2",
+            email="student2@example.com",
+            password="StrongPass123!",
+            consent_accepted=True,
+        )
+        other_session = ChatSession.objects.create(user=other_user, title="Other Session")
+        MoodCheckIn.objects.create(
+            user=other_user,
+            session=other_session,
+            mood="okay",
+            notes="Other note",
+            stress_level=2,
+        )
+
+        response = self.client.get("/api/chat/mood-checkins/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload), 1)
+        self.assertEqual(payload[0]["notes"], "Own note")
+        self.assertEqual(payload[0]["session_title"], "Own Session")
+
+    def test_session_feedback_can_be_saved_for_owned_session(self):
+        session = ChatSession.objects.create(user=self.user)
+        ChatMessage.objects.create(
+            session=session,
+            role="user",
+            content="I feel stressed.",
+            sentiment="negative",
+            risk_level="medium",
+            source="rule_engine",
+        )
+        ChatMessage.objects.create(
+            session=session,
+            role="assistant",
+            content="Let's slow it down together.",
+            sentiment="neutral",
+            risk_level="medium",
+            source="fallback",
+        )
+
+        response = self.client.post(
+            "/api/chat/session-feedback/",
+            {
+                "session_id": session.id,
+                "rating": 4,
+                "comments": "Helpful and calm.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        feedback = ChatSessionFeedback.objects.get(session=session)
+        self.assertEqual(feedback.user, self.user)
+        self.assertEqual(feedback.rating, 4)
+        self.assertEqual(feedback.comments, "Helpful and calm.")
+
+    def test_session_detail_includes_feedback(self):
+        session = ChatSession.objects.create(user=self.user, title="Student Session")
+        ChatSessionFeedback.objects.create(
+            session=session,
+            user=self.user,
+            rating=5,
+            comments="Very supportive.",
+        )
+
+        response = self.client.get(f"/api/chat/sessions/{session.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["feedback"]["rating"], 5)
+        self.assertEqual(payload["feedback"]["comments"], "Very supportive.")
+
     def test_sessions_endpoint_returns_only_authenticated_users_sessions(self):
         ChatSession.objects.create(user=self.user, title="Student Session")
         other_user = User.objects.create_user(
@@ -118,6 +217,58 @@ class ChatWorkflowTests(TestCase):
         payload = response.json()
         self.assertEqual(len(payload), 1)
         self.assertEqual(payload[0]["title"], "Student Session")
+
+    def test_chat_response_resources_exclude_support_only_entries_for_students(self):
+        ResourceRecommendation.objects.create(
+            title="Support Desk Only",
+            description="Internal support workflow.",
+            category="stress",
+            audience="support",
+            priority=99,
+            is_active=True,
+        )
+
+        response = self.client.post(
+            "/api/chat/message/",
+            {"message": "I feel stressed about exams."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        _, payload = parse_streaming_response(response)
+        resource_titles = [resource["title"] for resource in payload["resources"]]
+        self.assertIn("Stress Reset", resource_titles)
+        self.assertNotIn("Support Desk Only", resource_titles)
+
+    def test_chat_history_setting_can_prevent_new_sessions_from_being_saved_to_user_history(self):
+        self.user.save_chat_history = False
+        self.user.save(update_fields=["save_chat_history"])
+
+        response = self.client.post(
+            "/api/chat/message/",
+            {"message": "I feel stressed about exams."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        _, payload = parse_streaming_response(response)
+        session = ChatSession.objects.get(id=payload["session"]["id"])
+        self.assertIsNone(session.user)
+
+    def test_mood_checkin_setting_can_block_new_checkins(self):
+        self.user.save_mood_checkins = False
+        self.user.save(update_fields=["save_mood_checkins"])
+
+        response = self.client.post(
+            "/api/chat/mood-checkins/",
+            {
+                "mood": "okay",
+                "stress_level": 2,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
 
     def test_session_detail_returns_requested_users_session(self):
         session = ChatSession.objects.create(user=self.user, title="Student Session")

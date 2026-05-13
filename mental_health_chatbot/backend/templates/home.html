@@ -157,6 +157,34 @@
                     </div>
                 </form>
                 <div id="chat-status" class="status-text center-status hidden" aria-live="polite"></div>
+                <div id="feedback-prompt" class="feedback-prompt hidden">
+                    <div class="feedback-prompt-head">
+                        <span class="feedback-kicker">Conversation feedback</span>
+                        <span id="feedback-inline-pill" class="feedback-inline-pill">Quick rating</span>
+                    </div>
+                    <div class="feedback-prompt-copy">
+                        <h3>How helpful did this response feel?</h3>
+                        <p id="feedback-prompt-copy" class="muted-copy">Choose a quick rating, then add a short note if you want to help improve future conversations.</p>
+                    </div>
+                    <div id="feedback-inline-stars" class="feedback-inline-stars" role="group" aria-label="Rate this conversation">
+                        <button class="feedback-star" type="button" data-rating="1" aria-label="1 star">★</button>
+                        <button class="feedback-star" type="button" data-rating="2" aria-label="2 stars">★</button>
+                        <button class="feedback-star" type="button" data-rating="3" aria-label="3 stars">★</button>
+                        <button class="feedback-star" type="button" data-rating="4" aria-label="4 stars">★</button>
+                        <button class="feedback-star" type="button" data-rating="5" aria-label="5 stars">★</button>
+                    </div>
+                    <div id="feedback-inline-scale" class="feedback-inline-scale">Tap a star to rate this exchange.</div>
+                    <div class="feedback-inline-actions">
+                        <button id="toggle-feedback-note" class="feedback-link-button" type="button">Add a note</button>
+                    </div>
+                    <div id="feedback-inline-note-wrap" class="feedback-inline-note hidden">
+                        <textarea id="feedback-inline-comments" rows="3" placeholder="What felt helpful, or what could be better next time?"></textarea>
+                        <div class="feedback-inline-actions">
+                            <button id="save-feedback-note" class="auth-secondary" type="button">Save note</button>
+                        </div>
+                    </div>
+                    <div id="feedback-inline-status" class="status-text"></div>
+                </div>
                 <p class="footer-copy">This assistant offers supportive guidance and referral help. It is not a licensed mental health professional.</p>
             </footer>
         </section>
@@ -262,14 +290,23 @@
                 <section class="settings-content">
                     <h2 id="settings-modal-title">General</h2>
                     <div class="settings-pane" data-settings-pane="general">
-                        <div class="settings-row">
-                            <span>Save chat history</span>
-                            <strong>On when logged in</strong>
-                        </div>
-                        <div class="settings-row">
-                            <span>Support mode</span>
-                            <strong>Student wellbeing</strong>
-                        </div>
+                        <label class="settings-row" for="preferred-language-select">
+                            <span>Preferred language</span>
+                            <select id="preferred-language-select">
+                                <option value="en">English</option>
+                                <option value="zu">isiZulu</option>
+                                <option value="xh">isiXhosa</option>
+                                <option value="af">Afrikaans</option>
+                            </select>
+                        </label>
+                        <label class="settings-row" for="auto-open-resources-toggle">
+                            <span>Open resources automatically after distress is detected</span>
+                            <input id="auto-open-resources-toggle" type="checkbox">
+                        </label>
+                        <label class="settings-row" for="simplified-help-toggle">
+                            <span>Simplified help mode</span>
+                            <input id="simplified-help-toggle" type="checkbox">
+                        </label>
                     </div>
                     <div class="settings-pane hidden" data-settings-pane="appearance">
                         <label class="settings-row" for="text-size-select">
@@ -286,13 +323,21 @@
                         </label>
                     </div>
                     <div class="settings-pane hidden" data-settings-pane="privacy">
-                        <div class="settings-row">
-                            <span>Mood check-ins</span>
-                            <strong>Saved only after login</strong>
-                        </div>
-                        <div class="settings-row">
+                        <label class="settings-row" for="save-chat-history-toggle">
+                            <span>Save chat history to your account</span>
+                            <input id="save-chat-history-toggle" type="checkbox">
+                        </label>
+                        <label class="settings-row" for="save-mood-checkins-toggle">
+                            <span>Save mood check-ins to your account</span>
+                            <input id="save-mood-checkins-toggle" type="checkbox">
+                        </label>
+                        <label class="settings-row" for="emergency-contact-opt-in-toggle">
+                            <span>Show stronger crisis referral guidance when I ask for urgent help</span>
+                            <input id="emergency-contact-opt-in-toggle" type="checkbox">
+                        </label>
+                        <div class="settings-row settings-copy-row">
                             <span>Risk detection</span>
-                            <strong>Used for safety routing</strong>
+                            <strong>Used for safety routing and human escalation when needed</strong>
                         </div>
                     </div>
                     <div class="settings-pane hidden" data-settings-pane="account">
@@ -300,7 +345,14 @@
                             <span>Account type</span>
                             <strong id="settings-account-type">Student</strong>
                         </div>
+                        <div class="settings-row settings-copy-row">
+                            <span>Saved preferences</span>
+                            <strong>These settings are stored on your account when you are logged in.</strong>
+                        </div>
                         <button id="reset-preferences" class="auth-secondary" type="button">Reset preferences</button>
+                    </div>
+                    <div class="settings-actions">
+                        <button id="save-settings" class="dark-button auth-button" type="button">Save settings</button>
                     </div>
                     <div id="settings-status" class="status-text"></div>
                 </section>
@@ -312,14 +364,24 @@
         <div class="modal-card help-modal-card">
             <button id="close-help-modal" class="close-button" type="button">x</button>
             <h2>Help</h2>
+            <label class="session-search-label" for="help-search">Search help</label>
+            <input id="help-search" class="session-search-input" type="search" placeholder="Try: mood, history, resources, privacy">
             <div class="help-menu-grid">
                 <button id="help-center-action" class="help-menu-item" type="button">Help center</button>
                 <button id="help-resources-action" class="help-menu-item" type="button">Open resources</button>
                 <button id="help-shortcuts-action" class="help-menu-item" type="button">How to demo</button>
                 <button id="help-start-chat" class="help-menu-item" type="button">Start new chat</button>
             </div>
+            <div id="help-topic-list" class="help-topic-list">
+                <button class="help-topic-chip" type="button" data-help-topic="getting-started">Getting started</button>
+                <button class="help-topic-chip" type="button" data-help-topic="mood-checkins">Mood check-ins</button>
+                <button class="help-topic-chip" type="button" data-help-topic="chat-history">Chat history</button>
+                <button class="help-topic-chip" type="button" data-help-topic="resources-safety">Resources and safety</button>
+                <button class="help-topic-chip" type="button" data-help-topic="privacy">Privacy</button>
+                <button class="help-topic-chip" type="button" data-help-topic="troubleshooting">Troubleshooting</button>
+            </div>
             <div id="help-detail" class="help-detail">
-                Mood check-in records how the student is feeling. Resources provides referral links. Search chats opens saved conversations. Profile and Settings manage the user experience.
+                Choose a help topic to learn how the system works, what gets saved, and how safety guidance appears.
             </div>
         </div>
     </section>
@@ -362,6 +424,26 @@
                     <p id="active-safety-meta" class="muted-copy">Risk detection updates after each message.</p>
                 </section>
 
+                <section id="feedback-panel" class="info-card">
+                    <p class="section-label">Conversation feedback</p>
+                    <p class="muted-copy">Rate the current conversation once you have exchanged messages with the assistant.</p>
+                    <form id="feedback-form" class="auth-form">
+                        <label class="field-stack" for="feedback-rating">
+                            <span>Rating</span>
+                            <select id="feedback-rating" name="rating">
+                                <option value="5">5 - Very helpful</option>
+                                <option value="4">4 - Helpful</option>
+                                <option value="3" selected>3 - Neutral</option>
+                                <option value="2">2 - Not very helpful</option>
+                                <option value="1">1 - Not helpful</option>
+                            </select>
+                        </label>
+                        <textarea id="feedback-comments" name="comments" rows="3" placeholder="What worked well, or what should improve?"></textarea>
+                        <button type="submit">Save feedback</button>
+                    </form>
+                    <div id="feedback-status" class="status-text"></div>
+                </section>
+
                 <section id="mood-panel" class="info-card">
                     <p class="section-label">Mood check-in</p>
                     <p class="muted-copy">Save how you are feeling so the support record can track wellbeing over time.</p>
@@ -381,6 +463,15 @@
                         <button type="submit">Save check-in</button>
                     </form>
                     <div id="mood-status" class="status-text"></div>
+                    <div class="mood-history">
+                        <div class="feedback-prompt-head">
+                            <span class="feedback-kicker">Recent check-ins</span>
+                            <span id="mood-history-pill" class="feedback-inline-pill">Private to you</span>
+                        </div>
+                        <div id="mood-history-list" class="resource-list empty-state">
+                            Log in to load your recent mood check-ins.
+                        </div>
+                    </div>
                 </section>
 
                 <section id="resources-panel" class="info-card">

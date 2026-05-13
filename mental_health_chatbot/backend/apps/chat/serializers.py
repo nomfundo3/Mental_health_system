@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ChatMessage, ChatSession, MoodCheckIn
+from .models import ChatMessage, ChatSession, ChatSessionFeedback, MoodCheckIn
 
 
 class ChatMessageSerializer(serializers.ModelSerializer):
@@ -24,9 +24,28 @@ class ChatMessageSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class ChatSessionFeedbackSerializer(serializers.ModelSerializer):
+    session_id = serializers.IntegerField(write_only=True, required=True)
+
+    class Meta:
+        model = ChatSessionFeedback
+        fields = [
+            "id",
+            "session_id",
+            "session",
+            "user",
+            "rating",
+            "comments",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "session", "user", "created_at", "updated_at"]
+
+
 class ChatSessionSerializer(serializers.ModelSerializer):
     messages = ChatMessageSerializer(many=True, read_only=True)
     title = serializers.SerializerMethodField()
+    feedback = ChatSessionFeedbackSerializer(read_only=True)
 
     class Meta:
         model = ChatSession
@@ -41,6 +60,7 @@ class ChatSessionSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "messages",
+            "feedback",
         ]
         read_only_fields = fields
 
@@ -62,6 +82,7 @@ class ChatSessionSerializer(serializers.ModelSerializer):
 class MoodCheckInSerializer(serializers.ModelSerializer):
     session_id = serializers.IntegerField(required=False, write_only=True)
     stress_level = serializers.IntegerField(required=False)
+    session_title = serializers.SerializerMethodField()
 
     class Meta:
         model = MoodCheckIn
@@ -74,8 +95,19 @@ class MoodCheckInSerializer(serializers.ModelSerializer):
             "notes",
             "stress_level",
             "created_at",
+            "session_title",
         ]
         read_only_fields = ["id", "user", "session", "created_at"]
+
+    def validate_stress_level(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError("Stress level must be between 1 and 5.")
+        return value
+
+    def get_session_title(self, obj):
+        if obj.session and obj.session.title:
+            return obj.session.title
+        return ""
 
 
 class ChatRequestSerializer(serializers.Serializer):

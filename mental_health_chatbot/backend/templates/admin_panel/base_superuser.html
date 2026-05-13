@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{% block title %}Superuser Control{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/admin_support.css">
+</head>
+<body>
+    <main class="super-shell">
+        <aside class="super-sidebar">
+            <div class="super-sidebar-top">
+                <a class="super-logo" href="/admin-support/">
+                    <span class="super-logo-mark">S</span>
+                    <div>
+                        <strong>Superuser</strong>
+                        <span>Control Center</span>
+                    </div>
+                </a>
+
+                <nav class="super-nav">
+                    <a class="super-nav-link {% if active_page == 'dashboard' %}active{% endif %}" href="/admin-support/">
+                        Dashboard
+                    </a>
+                    <a class="super-nav-link {% if active_page == 'audit' %}active{% endif %}" href="/admin-support/audit/">
+                        Audit trail
+                    </a>
+                </nav>
+            </div>
+
+            <div class="super-sidebar-bottom">
+                <div class="super-side-card">
+                    <p class="section-label">Navigation order</p>
+                    <ol class="super-order-list">
+                        <li>Dashboard</li>
+                        <li>Audit trail</li>
+                        <li>Back to client</li>
+                    </ol>
+                </div>
+                <a class="secondary-link super-back-link" href="/">Back to client</a>
+            </div>
+        </aside>
+
+        <section class="super-main">
+            {% block content %}{% endblock %}
+        </section>
+    </main>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -12,13 +12,18 @@ User = get_user_model()
 class AdminPanelTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.admin_user = User.objects.create_user(
+        self.support_user = User.objects.create_user(
             username="supportdemo",
             email="support@example.com",
             password="StrongPass123!",
-            role="admin",
+            role="support",
             is_staff=True,
             consent_accepted=True,
+        )
+        self.superuser = User.objects.create_superuser(
+            username="superdemo",
+            email="super@example.com",
+            password="StrongPass123!",
         )
         self.student_user = User.objects.create_user(
             username="student1",
@@ -60,7 +65,11 @@ class AdminPanelTests(TestCase):
         forbidden = self.client.get("/api/admin-panel/dashboard/")
         self.assertEqual(forbidden.status_code, 403)
 
-        self.client.force_authenticate(user=self.admin_user)
+        self.client.force_authenticate(user=self.support_user)
+        support_forbidden = self.client.get("/api/admin-panel/dashboard/")
+        self.assertEqual(support_forbidden.status_code, 403)
+
+        self.client.force_authenticate(user=self.superuser)
         allowed = self.client.get("/api/admin-panel/dashboard/")
         self.assertEqual(allowed.status_code, 200)
         self.assertEqual(allowed.json()["totals"]["flagged_messages"], 1)
@@ -69,3 +78,11 @@ class AdminPanelTests(TestCase):
         self.assertEqual(allowed.json()["breakdowns"]["risk_levels"]["high"], 1)
         self.assertEqual(len(allowed.json()["recent_sessions"]), 1)
         self.assertEqual(len(allowed.json()["recent_mood_checkins"]), 1)
+
+    def test_flagged_messages_remain_available_to_support_users(self):
+        self.client.force_authenticate(user=self.support_user)
+
+        response = self.client.get("/api/admin-panel/flagged-messages/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["flagged_messages"]), 1)

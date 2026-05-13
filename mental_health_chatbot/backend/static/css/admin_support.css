@@ -36,6 +36,100 @@ a {
     padding: 28px 0 36px;
 }
 
+.super-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.super-sidebar {
+    padding: 18px 14px;
+    border-right: 1px solid rgba(220, 201, 175, 0.55);
+    background:
+        linear-gradient(180deg, rgba(255, 250, 243, 0.95) 0%, rgba(248, 242, 233, 0.9) 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.super-sidebar-top,
+.super-sidebar-bottom,
+.super-nav {
+    display: grid;
+    gap: 12px;
+}
+
+.super-logo {
+    text-decoration: none;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 18px;
+    background: rgba(255, 250, 243, 0.9);
+    border: 1px solid rgba(220, 201, 175, 0.7);
+}
+
+.super-logo-mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: rgba(31, 122, 107, 0.12);
+    color: var(--accent-dark);
+    font-weight: 700;
+}
+
+.super-logo strong,
+.super-logo span {
+    display: block;
+}
+
+.super-logo span {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.super-nav-link {
+    text-decoration: none;
+    color: var(--ink);
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: transparent;
+}
+
+.super-nav-link.active,
+.super-nav-link:hover {
+    background: rgba(31, 122, 107, 0.12);
+    color: var(--accent-dark);
+}
+
+.super-side-card {
+    border-radius: 20px;
+    padding: 14px;
+    background: rgba(255, 250, 243, 0.94);
+    border: 1px solid rgba(220, 201, 175, 0.7);
+}
+
+.super-order-list {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--muted);
+    display: grid;
+    gap: 8px;
+}
+
+.super-back-link {
+    width: 100%;
+}
+
+.super-main {
+    min-width: 0;
+}
+
 .admin-topbar,
 .hero-card,
 .metric-card,
@@ -277,6 +371,12 @@ a {
     margin-top: 18px;
 }
 
+.audit-page-grid {
+    display: grid;
+    gap: 18px;
+    margin-top: 18px;
+}
+
 .empty-card {
     color: var(--muted);
     text-align: center;
@@ -297,6 +397,15 @@ a {
 }
 
 @media (max-width: 760px) {
+    .super-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .super-sidebar {
+        border-right: none;
+        border-bottom: 1px solid rgba(220, 201, 175, 0.55);
+    }
+
     .admin-shell {
         width: min(100% - 20px, 100%);
         padding-top: 18px;
