@@ -265,7 +265,8 @@ select {
     justify-content: flex-end;
 }
 
-.user-pill {
+.user-pill,
+.role-badge {
     display: inline-flex;
     align-items: center;
     min-height: 42px;
@@ -275,6 +276,12 @@ select {
     color: var(--accent-dark);
     font-size: 0.92rem;
     font-weight: 700;
+}
+
+.role-badge {
+    background: rgba(138, 59, 46, 0.12);
+    color: var(--warn);
+    border: 1px solid rgba(138, 59, 46, 0.2);
 }
 
 .center-stage {

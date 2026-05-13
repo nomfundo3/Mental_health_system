@@ -1,5 +1,7 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import render
 
 from rest_framework.permissions import IsAuthenticated
@@ -69,7 +71,11 @@ class AuditLogsView(APIView):
         return Response({"audit_logs": data})
 
 
+@login_required
 def audit_logs_page(request):
+    if not (request.user.is_staff or getattr(request.user, "role", "") in {"admin", "support"}):
+        raise PermissionDenied("You do not have permission to access audit logs.")
+
     logs = ChatMessage.objects.select_related(
         "session",
         "session__user"

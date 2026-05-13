@@ -98,16 +98,21 @@ a {
     cursor: pointer;
 }
 
+.secondary-link {
+    border: 1px solid var(--line);
+    color: var(--ink);
+    background: rgba(255, 250, 243, 0.96);
+}
+
 .primary-button {
     border: none;
     background: var(--accent);
     color: white;
 }
 
-.secondary-link {
-    border: 1px solid var(--line);
-    color: var(--ink);
-    background: rgba(255, 250, 243, 0.96);
+.compact-button {
+    min-height: 38px;
+    border-radius: 999px;
 }
 
 .hero-grid,
@@ -192,7 +197,8 @@ a {
 .breakdown-list,
 .insight-list,
 .queue-list,
-.stack-list {
+.stack-list,
+.audit-list {
     display: grid;
     gap: 12px;
 }
@@ -200,7 +206,8 @@ a {
 .breakdown-row,
 .insight-item,
 .queue-item,
-.stack-item {
+.stack-item,
+.audit-item {
     background: var(--panel-strong);
     border: 1px solid rgba(220, 201, 175, 0.72);
     border-radius: 18px;
@@ -247,7 +254,8 @@ a {
 }
 
 .queue-head,
-.stack-head {
+.stack-head,
+.audit-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -256,12 +264,17 @@ a {
 }
 
 .queue-meta,
-.stack-meta {
+.stack-meta,
+.audit-meta {
     font-size: 0.9rem;
 }
 
 .wide-card {
     min-height: 100%;
+}
+
+.audit-section {
+    margin-top: 18px;
 }
 
 .empty-card {

@@ -23,6 +23,7 @@ const activeSessionMeta = document.getElementById("active-session-meta");
 const activeSafetyMeta = document.getElementById("active-safety-meta");
 const chatTitle = document.getElementById("chat-title");
 const topbarUserLabel = document.getElementById("topbar-user-label");
+const topbarRoleBadge = document.getElementById("topbar-role-badge");
 
 const factSessionCount = document.getElementById("fact-session-count");
 const factResourceCount = document.getElementById("fact-resource-count");
@@ -46,6 +47,8 @@ const openLoginButton = document.getElementById("open-login");
 const openLoginTopButton = document.getElementById("open-login-top");
 const openRegisterButton = document.getElementById("open-register");
 const openAdminPanelButton = document.getElementById("open-admin-panel");
+const openDashboardButton = document.getElementById("open-dashboard");
+const openAuditTrailButton = document.getElementById("open-audit-trail");
 const openAccountButton = document.getElementById("open-account");
 const closeAuthModalButton = document.getElementById("close-auth-modal");
 const authModal = document.getElementById("auth-modal");
@@ -235,6 +238,15 @@ function updateAuthChrome(user) {
     promoGuestActions?.classList.toggle("hidden", isAuthenticated);
     openAdminPanelButton?.classList.toggle("hidden", !isSupportUser(user));
 
+    if (topbarRoleBadge) {
+        if (user && user.role) {
+            topbarRoleBadge.textContent = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+            topbarRoleBadge.classList.remove("hidden");
+        } else {
+            topbarRoleBadge.classList.add("hidden");
+        }
+    }
+
     if (topbarUserLabel) {
         topbarUserLabel.textContent = accountName;
     }
@@ -252,6 +264,8 @@ function updateSupportChrome(user) {
     const canReviewFlagged = isSupportUser(user);
 
     loadFlaggedButton?.classList.toggle("hidden", !canReviewFlagged);
+    openDashboardButton?.classList.toggle("hidden", !canReviewFlagged);
+    openAuditTrailButton?.classList.toggle("hidden", !canReviewFlagged);
     flaggedReviewCard?.classList.toggle("hidden", !canReviewFlagged);
     flaggedStatCard?.classList.toggle("hidden", !canReviewFlagged);
 
@@ -950,6 +964,14 @@ openLoginTopButton.addEventListener("click", () => openAuthPanel("login"));
 openRegisterButton.addEventListener("click", () => openAuthPanel("register"));
 openAdminPanelButton?.addEventListener("click", () => {
     window.location.href = "/admin-support/";
+});
+
+openDashboardButton?.addEventListener("click", () => {
+    window.location.href = "/admin-support/";
+});
+
+openAuditTrailButton?.addEventListener("click", () => {
+    window.location.href = "/admin-support/#audit-section";
 });
 openAccountButton?.addEventListener("click", () => openAuthPanel("account"));
 closeAuthModalButton.addEventListener("click", closeAuthPanel);

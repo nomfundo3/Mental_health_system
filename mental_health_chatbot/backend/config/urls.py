@@ -1,10 +1,9 @@
-from django.contrib import admin
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.shortcuts import render
 from django.urls import include, path
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.generic import RedirectView
 
 
 @ensure_csrf_cookie
@@ -22,7 +21,7 @@ def admin_support(request):
 urlpatterns = [
     path("", home, name="home"),
     path("admin-support/", admin_support, name="admin-support"),
-    path("admin/", admin.site.urls),
+    path("admin/", RedirectView.as_view(url="/admin-support/", permanent=False)),
     path("api/users/", include("apps.users.urls")),
     path("api/chat/", include("apps.chat.urls")),
     path("api/recommendations/", include("apps.recommendations.urls")),

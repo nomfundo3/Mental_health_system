@@ -17,6 +17,7 @@
             </div>
             <div class="topbar-actions">
                 <a class="secondary-link" href="/">Back to client</a>
+                <button id="show-audit-logs" class="secondary-link" type="button">Audit trail</button>
                 <button id="refresh-dashboard" class="primary-button" type="button">Refresh data</button>
             </div>
         </header>
@@ -149,6 +150,19 @@
                 </div>
                 <div id="recent-checkins" class="stack-list"></div>
             </article>
+        </section>
+
+        <section id="audit-section" class="panel-card audit-section">
+            <div class="panel-head">
+                <div>
+                    <p class="section-label">Audit trail</p>
+                    <h2>System activity visible in the browser dashboard</h2>
+                </div>
+                <button id="refresh-audit-logs" class="secondary-link compact-button" type="button">Refresh logs</button>
+            </div>
+            <div id="audit-log-list" class="audit-list">
+                <div class="empty-card">Loading audit logs.</div>
+            </div>
         </section>
     </main>
 
